@@ -27,7 +27,23 @@ const sessionStories = [];
  * Auto-detect and load any Service Account JSON file in the project folder
  */
 function getServiceAccountCredentials() {
-  // 1. Check environment variables
+  // 1. Check for entire JSON in environment variable (easiest for Render deployment)
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    try {
+      const parsed = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+      if (parsed.client_email && parsed.private_key) {
+        return {
+          clientEmail: parsed.client_email,
+          privateKey: parsed.private_key.replace(/\\n/g, '\n'),
+          source: 'env_json'
+        };
+      }
+    } catch (e) {
+      console.warn('Could not parse GOOGLE_SERVICE_ACCOUNT_JSON:', e.message);
+    }
+  }
+
+  // 2. Check individual environment variables
   const envEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_CLIENT_EMAIL;
   const envKey = process.env.GOOGLE_PRIVATE_KEY;
   if (envEmail && envKey) {
