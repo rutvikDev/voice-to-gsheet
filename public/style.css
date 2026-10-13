@@ -269,64 +269,56 @@ body {
   gap: 22px;
 }
 
-/* Toolbar */
-.toolbar {
+/* Voice Options Bar & Dialect Pills */
+.voice-options-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding-bottom: 6px;
+  padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.toolbar-label {
+.accent-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
-.select-wrapper {
-  position: relative;
+.dialect-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.select-wrapper select {
-  appearance: none;
-  background: rgba(13, 18, 31, 0.85);
+.lang-pill {
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
   font-family: var(--font-main);
-  font-size: 0.82rem;
-  font-weight: 500;
-  padding: 6px 30px 6px 12px;
-  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
   cursor: pointer;
   transition: var(--transition-fast);
 }
 
-.select-wrapper select:hover, .select-wrapper select:focus {
-  border-color: var(--border-focus);
-  outline: none;
+.lang-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
 }
 
-.select-wrapper::after {
-  content: '▾';
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  pointer-events: none;
+.lang-pill.active {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.6);
+  color: #a5b4fc;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
 }
 
 /* Listening Pill */
@@ -334,11 +326,21 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 14px;
+  padding: 7px 16px;
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: var(--radius-full);
   animation: fadeIn 0.25s ease-out;
+}
+
+.sound-level-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .pulsing-red-dot {
