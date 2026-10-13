@@ -162,12 +162,21 @@ app.post('/api/submit', async (req, res) => {
       });
     }
 
-    const formattedTimestamp = new Date(timestamp).toLocaleString('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'medium'
-    });
+    // Clean, readable timestamp: e.g. "13-Oct-2026 07:15 PM"
+    const now = timestamp ? new Date(timestamp) : new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[now.getMonth()];
+    const year = now.getFullYear();
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? String(hours).padStart(2, '0') : '12';
+    const displayTimestamp = `${day}-${month}-${year} ${hours}:${minutes} ${ampm}`;
 
-    const rowData = [formattedTimestamp, cleanTopic, cleanDesc, language];
+    // Leading apostrophe tells Google Sheets to store as text so it displays literally and never as raw decimal (46308.xxxxx)
+    const rowData = [`'${displayTimestamp}`, cleanTopic, cleanDesc, language];
     const sa = getServiceAccountCredentials();
 
     let syncedToSheet = false;
@@ -199,7 +208,7 @@ app.post('/api/submit', async (req, res) => {
       id: Date.now().toString(),
       topic: cleanTopic || '(Untitled Topic)',
       description: cleanDesc,
-      timestamp: formattedTimestamp,
+      timestamp: displayTimestamp,
       language,
       syncedToSheet,
       sheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=0`,

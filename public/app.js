@@ -507,21 +507,6 @@ clearDescBtn.addEventListener('click', clearDesc);
 topicInput.addEventListener('input', updateFieldStates);
 descInput.addEventListener('input', updateFieldStates);
 
-// Dialect Selection Pills (en-IN, en-US, hi-IN)
-document.querySelectorAll('.lang-pill').forEach(pill => {
-  pill.addEventListener('click', () => {
-    document.querySelectorAll('.lang-pill').forEach(p => p.classList.remove('active'));
-    pill.classList.add('active');
-    selectedDialect = pill.getAttribute('data-lang') || 'en-IN';
-
-    // If currently recording, restart seamlessly with new dialect
-    if (isUserIntentRecording && activeRecordingField) {
-      const current = activeRecordingField;
-      stopRecording();
-      setTimeout(() => startFieldRecording(current), 150);
-    }
-  });
-});
 
 // Keyboard Shortcuts: Ctrl+Enter to submit
 window.addEventListener('keydown', (e) => {
