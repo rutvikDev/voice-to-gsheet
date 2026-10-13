@@ -1,14 +1,10 @@
 /**
  * Storyteller Studio - Client Application
- * Features:
- * - Two separate voice recognition fields: Topic & Short Description
- * - Independent microphone buttons on the right side of both inputs
- * - Real-time interim preview & auto-capitalization
- * - Zero logins required: Direct Service Account backend sync to Google Sheet
- * - Pleasant synthesized Web Audio chimes
+ * Robust Speech Recognition with zero false abort warnings,
+ * independent Topic & Description recording, and direct Google Sheet sync.
  */
 
-// DOM Elements - Fields & Buttons
+// DOM Elements
 const topicInput = document.getElementById('topicInput');
 const topicWrapper = document.getElementById('topicWrapper');
 const topicMicBtn = document.getElementById('topicMicBtn');
@@ -44,12 +40,14 @@ const connectionStatusBadge = document.getElementById('connectionStatusBadge');
 const statusBadgeText = document.getElementById('statusBadgeText');
 const openSheetLink = document.getElementById('openSheetLink');
 
-// State
+// Speech Recognition Engine State
 let recognition = null;
 let activeRecordingField = null; // 'topic' | 'desc' | null
-let finalTranscriptBeforeStart = '';
+let isUserIntentRecording = false;
+let restartTimeout = null;
+let baseTextBeforeSpeech = '';
 
-// Web Audio Tone Synthesis
+// Web Audio Feedback (synthesized tones)
 let audioCtx = null;
 function playTone(type = 'start') {
   try {
@@ -68,169 +66,246 @@ function playTone(type = 'start') {
     const now = audioCtx.currentTime;
     if (type === 'start') {
       osc.frequency.setValueAtTime(440, now);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
       osc.start(now);
-      osc.stop(now + 0.15);
+      osc.stop(now + 0.12);
     } else if (type === 'stop') {
       osc.frequency.setValueAtTime(660, now);
-      osc.frequency.exponentialRampToValueAtTime(330, now + 0.15);
-      gain.gain.setValueAtTime(0.06, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.frequency.exponentialRampToValueAtTime(330, now + 0.12);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
       osc.start(now);
-      osc.stop(now + 0.15);
+      osc.stop(now + 0.12);
     } else if (type === 'success') {
       osc.frequency.setValueAtTime(523.25, now);
       osc.frequency.setValueAtTime(659.25, now + 0.1);
-      osc.frequency.setValueAtTime(783.99, now + 0.2);
+      osc.frequency.setValueAtTime(783.99, now + 0.18);
       gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
       osc.start(now);
-      osc.stop(now + 0.35);
+      osc.stop(now + 0.3);
     }
   } catch (err) {}
 }
 
 /**
- * Initialize Speech Recognition
+ * Toggle recording on a specified field ('topic' or 'desc')
  */
-function initSpeechRecognition() {
+async function toggleFieldRecording(fieldName) {
+  // If already recording on this field, stop
+  if (isUserIntentRecording && activeRecordingField === fieldName) {
+    stopRecording();
+    return;
+  }
+
+  // If recording on another field, stop first then switch
+  if (isUserIntentRecording) {
+    stopRecording();
+    setTimeout(() => {
+      startFieldRecording(fieldName);
+    }, 200);
+    return;
+  }
+
+  startFieldRecording(fieldName);
+}
+
+/**
+ * Start speech recognition targeting a specific input
+ */
+async function startFieldRecording(fieldName) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
     showToast(
-      'Speech Recognition Notice',
-      'Please open this app in Chrome, Edge, Safari, or Opera to use voice recognition.',
+      'Browser Not Supported',
+      'Please open this app in Google Chrome or Microsoft Edge for native speech recognition support.',
       'error'
     );
-    topicMicBtn.disabled = true;
-    descMicBtn.disabled = true;
     return;
   }
 
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
-  recognition.lang = languageSelect.value;
-
-  recognition.onstart = () => {
-    playTone('start');
-    activeFieldPill.classList.remove('hidden');
-
-    if (activeRecordingField === 'topic') {
-      listeningFieldText.textContent = 'Listening to Topic...';
-      topicMicBtn.classList.add('active');
-      topicWrapper.classList.add('recording');
-      topicMicBtn.setAttribute('title', 'Listening... Click to stop');
-      finalTranscriptBeforeStart = topicInput.value ? topicInput.value.trim() + ' ' : '';
-    } else if (activeRecordingField === 'desc') {
-      listeningFieldText.textContent = 'Listening to Description...';
-      descMicBtn.classList.add('active');
-      descWrapper.classList.add('recording');
-      descMicBtn.setAttribute('title', 'Listening... Click to stop');
-      finalTranscriptBeforeStart = descInput.value ? descInput.value.trim() + ' ' : '';
+  // Request microphone permission if not yet granted
+  try {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Release stream immediately; SpeechRecognition handles audio capture
+      stream.getTracks().forEach(track => track.stop());
     }
-  };
-
-  recognition.onresult = (event) => {
-    let interimTranscript = '';
-    let completedTranscript = '';
-
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      const piece = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        completedTranscript += piece + ' ';
-      } else {
-        interimTranscript += piece;
-      }
-    }
-
-    if (completedTranscript) {
-      finalTranscriptBeforeStart += completedTranscript;
-    }
-
-    let combined = (finalTranscriptBeforeStart + interimTranscript).trimStart();
-    if (combined.length > 0) {
-      combined = combined.charAt(0).toUpperCase() + combined.slice(1);
-    }
-
-    if (activeRecordingField === 'topic') {
-      topicInput.value = combined;
-    } else if (activeRecordingField === 'desc') {
-      descInput.value = combined;
-    }
-
-    updateFieldStates();
-  };
-
-  recognition.onerror = (event) => {
-    console.warn('Speech recognition error:', event.error);
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+  } catch (permErr) {
+    console.warn('Microphone permission query notice:', permErr);
+    if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
       showToast(
-        'Microphone Permission Required',
-        'Please allow microphone access in your browser to speak.',
+        'Microphone Blocked',
+        'Please click the microphone icon in your browser address bar and choose "Allow".',
         'error'
       );
-      stopRecording();
-    } else if (event.error !== 'no-speech') {
-      showToast('Speech Recognition Warning', `Error: ${event.error}`, 'error');
-      stopRecording();
+      return;
     }
-  };
+  }
 
-  recognition.onend = () => {
-    if (activeRecordingField) {
-      try {
-        recognition.start();
+  // Clean up any stale instances or timers
+  cleanUpExistingRecognition();
+
+  activeRecordingField = fieldName;
+  isUserIntentRecording = true;
+
+  // Save current text to append to
+  if (fieldName === 'topic') {
+    baseTextBeforeSpeech = topicInput.value ? topicInput.value.trim() + ' ' : '';
+  } else {
+    baseTextBeforeSpeech = descInput.value ? descInput.value.trim() + ' ' : '';
+  }
+
+  // Create a brand new clean SpeechRecognition instance
+  try {
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.lang = languageSelect.value;
+
+    recognition.onstart = () => {
+      playTone('start');
+      activeFieldPill.classList.remove('hidden');
+
+      if (activeRecordingField === 'topic') {
+        listeningFieldText.textContent = 'Listening to Topic...';
+        topicMicBtn.classList.add('active');
+        topicWrapper.classList.add('recording');
+        topicMicBtn.setAttribute('title', 'Listening... Click to stop');
+      } else if (activeRecordingField === 'desc') {
+        listeningFieldText.textContent = 'Listening to Description...';
+        descMicBtn.classList.add('active');
+        descWrapper.classList.add('recording');
+        descMicBtn.setAttribute('title', 'Listening... Click to stop');
+      }
+    };
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      let completed = '';
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const text = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          completed += text + ' ';
+        } else {
+          interim += text;
+        }
+      }
+
+      if (completed) {
+        baseTextBeforeSpeech += completed;
+      }
+
+      let combined = (baseTextBeforeSpeech + interim).trimStart();
+      if (combined.length > 0) {
+        combined = combined.charAt(0).toUpperCase() + combined.slice(1);
+      }
+
+      if (activeRecordingField === 'topic') {
+        topicInput.value = combined;
+      } else if (activeRecordingField === 'desc') {
+        descInput.value = combined;
+      }
+
+      updateFieldStates();
+    };
+
+    recognition.onerror = (event) => {
+      console.log('[SpeechRecognition] Event status:', event.error);
+
+      // 'aborted' and 'no-speech' are harmless lifecycle events in Web Speech API
+      // Do NOT show error alerts for them!
+      if (event.error === 'aborted' || event.error === 'no-speech') {
         return;
-      } catch (e) {}
-    }
-    stopRecording();
-  };
+      }
+
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        showToast(
+          'Microphone Blocked',
+          'Please allow microphone access in your browser address bar.',
+          'error'
+        );
+        stopRecording();
+      } else if (event.error === 'network') {
+        // Subtle reconnect
+        console.warn('Network glitch in speech recognition; will reconnect automatically.');
+      } else {
+        console.warn('Non-fatal speech recognition event:', event.error);
+      }
+    };
+
+    recognition.onend = () => {
+      // If the user hasn't explicitly stopped recording,
+      // restart with a brief debounce so the browser audio subsystem resets cleanly
+      if (isUserIntentRecording && activeRecordingField) {
+        restartTimeout = setTimeout(() => {
+          if (isUserIntentRecording && activeRecordingField) {
+            try {
+              startFieldRecording(activeRecordingField);
+            } catch (err) {
+              console.warn('Restart exception:', err);
+            }
+          }
+        }, 150);
+      } else {
+        cleanUpUI();
+      }
+    };
+
+    recognition.start();
+
+  } catch (err) {
+    console.error('Failed to start speech recognition:', err);
+    isUserIntentRecording = false;
+    cleanUpUI();
+  }
 }
 
 /**
- * Start or stop recording on a specific field
+ * Cleanly stop recording session
  */
-function toggleFieldRecording(fieldName) {
-  if (!recognition) {
-    initSpeechRecognition();
-    if (!recognition) return;
-  }
-
-  if (activeRecordingField === fieldName) {
-    stopRecording();
-  } else {
-    if (activeRecordingField) {
-      stopRecording();
-      setTimeout(() => startFieldRecording(fieldName), 150);
-    } else {
-      startFieldRecording(fieldName);
-    }
-  }
-}
-
-function startFieldRecording(fieldName) {
-  activeRecordingField = fieldName;
-  try {
-    recognition.lang = languageSelect.value;
-    recognition.start();
-  } catch (err) {
-    console.error('Start recognition failed:', err);
-    initSpeechRecognition();
-    try {
-      recognition.start();
-    } catch (e) {}
-  }
-}
-
 function stopRecording() {
-  const previousField = activeRecordingField;
-  activeRecordingField = null;
-
+  isUserIntentRecording = false;
   playTone('stop');
+
+  cleanUpExistingRecognition();
+  cleanUpUI();
+
+  // Trim trailing whitespace
+  topicInput.value = topicInput.value.trim();
+  descInput.value = descInput.value.trim();
+  updateFieldStates();
+}
+
+function cleanUpExistingRecognition() {
+  if (restartTimeout) {
+    clearTimeout(restartTimeout);
+    restartTimeout = null;
+  }
+
+  if (recognition) {
+    // Nullify listeners to prevent trailing events
+    recognition.onstart = null;
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
+    try {
+      recognition.stop();
+    } catch (e) {}
+    try {
+      recognition.abort();
+    } catch (e) {}
+    recognition = null;
+  }
+}
+
+function cleanUpUI() {
+  activeRecordingField = null;
   activeFieldPill.classList.add('hidden');
 
   topicMicBtn.classList.remove('active');
@@ -240,20 +315,6 @@ function stopRecording() {
   descMicBtn.classList.remove('active');
   descWrapper.classList.remove('recording');
   descMicBtn.setAttribute('title', 'Speak Short Description (Microphone)');
-
-  if (recognition) {
-    try {
-      recognition.stop();
-    } catch (e) {}
-  }
-
-  if (previousField === 'topic') {
-    topicInput.value = topicInput.value.trim();
-  } else if (previousField === 'desc') {
-    descInput.value = descInput.value.trim();
-  }
-
-  updateFieldStates();
 }
 
 /**
@@ -283,7 +344,7 @@ function updateFieldStates() {
     clearDescBtn.classList.add('hidden');
   }
 
-  // Enable submit button if either field has content
+  // Enable submit button if either field is present
   if (topicVal.length > 0 || descVal.trim().length > 0) {
     submitBtn.disabled = false;
   } else {
@@ -295,15 +356,17 @@ function updateFieldStates() {
  * Clear actions
  */
 function clearTopic() {
-  if (activeRecordingField === 'topic') stopRecording();
+  if (isUserIntentRecording && activeRecordingField === 'topic') stopRecording();
   topicInput.value = '';
+  baseTextBeforeSpeech = '';
   topicInput.focus();
   updateFieldStates();
 }
 
 function clearDesc() {
-  if (activeRecordingField === 'desc') stopRecording();
+  if (isUserIntentRecording && activeRecordingField === 'desc') stopRecording();
   descInput.value = '';
+  baseTextBeforeSpeech = '';
   descInput.focus();
   updateFieldStates();
 }
@@ -320,7 +383,7 @@ async function handleSubmitStory() {
     return;
   }
 
-  if (activeRecordingField) {
+  if (isUserIntentRecording) {
     stopRecording();
   }
 
@@ -363,6 +426,7 @@ async function handleSubmitStory() {
     // Reset inputs
     topicInput.value = '';
     descInput.value = '';
+    baseTextBeforeSpeech = '';
     updateFieldStates();
 
   } catch (error) {
@@ -550,13 +614,10 @@ window.addEventListener('keydown', (e) => {
 
 // Language Select change
 languageSelect.addEventListener('change', () => {
-  if (recognition) {
-    recognition.lang = languageSelect.value;
-    if (activeRecordingField) {
-      const current = activeRecordingField;
-      stopRecording();
-      setTimeout(() => startFieldRecording(current), 150);
-    }
+  if (isUserIntentRecording && activeRecordingField) {
+    const current = activeRecordingField;
+    stopRecording();
+    setTimeout(() => startFieldRecording(current), 200);
   }
 });
 
@@ -578,7 +639,6 @@ clearHistoryBtn.addEventListener('click', () => {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-  initSpeechRecognition();
   updateFieldStates();
   checkBackendStatus();
   loadHistory();
