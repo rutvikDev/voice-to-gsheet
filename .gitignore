@@ -3,4 +3,6 @@ node_modules/
 .DS_Store
 *.log
 client_secret*.json
+service_account*.json
+
 
