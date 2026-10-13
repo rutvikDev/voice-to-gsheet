@@ -1,7 +1,6 @@
 /**
  * Storyteller Studio - Client Application
- * Robust Speech Recognition with zero false abort warnings,
- * independent Topic & Description recording, and direct Google Sheet sync.
+ * Clean & Focused: Topic & Short Description Voice Input with Direct Sheet Sync
  */
 
 // DOM Elements
@@ -22,7 +21,6 @@ const submitBtn = document.getElementById('submitBtn');
 const submitBtnText = document.getElementById('submitBtnText');
 const btnSpinner = document.getElementById('btnSpinner');
 
-const languageSelect = document.getElementById('languageSelect');
 const activeFieldPill = document.getElementById('activeFieldPill');
 const listeningFieldText = document.getElementById('listeningFieldText');
 
@@ -31,16 +29,7 @@ const toastTitle = document.getElementById('toastTitle');
 const toastSubtitle = document.getElementById('toastSubtitle');
 const toastCloseBtn = document.getElementById('toastCloseBtn');
 
-const entriesList = document.getElementById('entriesList');
-const emptyState = document.getElementById('emptyState');
-const historyBadgeCount = document.getElementById('historyBadgeCount');
-const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-
-const connectionStatusBadge = document.getElementById('connectionStatusBadge');
-const statusBadgeText = document.getElementById('statusBadgeText');
-const openSheetLink = document.getElementById('openSheetLink');
-
-// Speech Recognition Engine State
+// State
 let recognition = null;
 let activeRecordingField = null; // 'topic' | 'desc' | null
 let isUserIntentRecording = false;
@@ -94,13 +83,11 @@ function playTone(type = 'start') {
  * Toggle recording on a specified field ('topic' or 'desc')
  */
 async function toggleFieldRecording(fieldName) {
-  // If already recording on this field, stop
   if (isUserIntentRecording && activeRecordingField === fieldName) {
     stopRecording();
     return;
   }
 
-  // If recording on another field, stop first then switch
   if (isUserIntentRecording) {
     stopRecording();
     setTimeout(() => {
@@ -131,7 +118,6 @@ async function startFieldRecording(fieldName) {
   try {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Release stream immediately; SpeechRecognition handles audio capture
       stream.getTracks().forEach(track => track.stop());
     }
   } catch (permErr) {
@@ -146,38 +132,35 @@ async function startFieldRecording(fieldName) {
     }
   }
 
-  // Clean up any stale instances or timers
   cleanUpExistingRecognition();
 
   activeRecordingField = fieldName;
   isUserIntentRecording = true;
 
-  // Save current text to append to
   if (fieldName === 'topic') {
     baseTextBeforeSpeech = topicInput.value ? topicInput.value.trim() + ' ' : '';
   } else {
     baseTextBeforeSpeech = descInput.value ? descInput.value.trim() + ' ' : '';
   }
 
-  // Create a brand new clean SpeechRecognition instance
   try {
     recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.lang = languageSelect.value;
+    recognition.lang = 'en-US';
 
     recognition.onstart = () => {
       playTone('start');
-      activeFieldPill.classList.remove('hidden');
+      if (activeFieldPill) activeFieldPill.classList.remove('hidden');
 
       if (activeRecordingField === 'topic') {
-        listeningFieldText.textContent = 'Listening to Topic...';
+        if (listeningFieldText) listeningFieldText.textContent = 'Listening to Topic...';
         topicMicBtn.classList.add('active');
         topicWrapper.classList.add('recording');
         topicMicBtn.setAttribute('title', 'Listening... Click to stop');
       } else if (activeRecordingField === 'desc') {
-        listeningFieldText.textContent = 'Listening to Description...';
+        if (listeningFieldText) listeningFieldText.textContent = 'Listening to Description...';
         descMicBtn.classList.add('active');
         descWrapper.classList.add('recording');
         descMicBtn.setAttribute('title', 'Listening... Click to stop');
@@ -216,10 +199,7 @@ async function startFieldRecording(fieldName) {
     };
 
     recognition.onerror = (event) => {
-      console.log('[SpeechRecognition] Event status:', event.error);
-
-      // 'aborted' and 'no-speech' are harmless lifecycle events in Web Speech API
-      // Do NOT show error alerts for them!
+      // Ignored non-fatal events
       if (event.error === 'aborted' || event.error === 'no-speech') {
         return;
       }
@@ -231,17 +211,12 @@ async function startFieldRecording(fieldName) {
           'error'
         );
         stopRecording();
-      } else if (event.error === 'network') {
-        // Subtle reconnect
-        console.warn('Network glitch in speech recognition; will reconnect automatically.');
       } else {
-        console.warn('Non-fatal speech recognition event:', event.error);
+        console.warn('Speech recognition notice:', event.error);
       }
     };
 
     recognition.onend = () => {
-      // If the user hasn't explicitly stopped recording,
-      // restart with a brief debounce so the browser audio subsystem resets cleanly
       if (isUserIntentRecording && activeRecordingField) {
         restartTimeout = setTimeout(() => {
           if (isUserIntentRecording && activeRecordingField) {
@@ -276,7 +251,6 @@ function stopRecording() {
   cleanUpExistingRecognition();
   cleanUpUI();
 
-  // Trim trailing whitespace
   topicInput.value = topicInput.value.trim();
   descInput.value = descInput.value.trim();
   updateFieldStates();
@@ -289,7 +263,6 @@ function cleanUpExistingRecognition() {
   }
 
   if (recognition) {
-    // Nullify listeners to prevent trailing events
     recognition.onstart = null;
     recognition.onresult = null;
     recognition.onerror = null;
@@ -306,7 +279,7 @@ function cleanUpExistingRecognition() {
 
 function cleanUpUI() {
   activeRecordingField = null;
-  activeFieldPill.classList.add('hidden');
+  if (activeFieldPill) activeFieldPill.classList.add('hidden');
 
   topicMicBtn.classList.remove('active');
   topicWrapper.classList.remove('recording');
@@ -324,19 +297,17 @@ function updateFieldStates() {
   const topicVal = topicInput.value.trim();
   const descVal = descInput.value;
 
-  // Clear button for Topic
   if (topicInput.value.length > 0) {
     clearTopicBtn.classList.remove('hidden');
   } else {
     clearTopicBtn.classList.add('hidden');
   }
 
-  // Clear button & counters for Description
   const descLen = descVal.length;
   const descWords = descVal.trim() ? descVal.trim().split(/\s+/).length : 0;
 
-  descCharCount.textContent = `${descLen} character${descLen === 1 ? '' : 's'}`;
-  descWordCount.textContent = `${descWords} word${descWords === 1 ? '' : 's'}`;
+  if (descCharCount) descCharCount.textContent = `${descLen} character${descLen === 1 ? '' : 's'}`;
+  if (descWordCount) descWordCount.textContent = `${descWords} word${descWords === 1 ? '' : 's'}`;
 
   if (descLen > 0) {
     clearDescBtn.classList.remove('hidden');
@@ -344,7 +315,6 @@ function updateFieldStates() {
     clearDescBtn.classList.add('hidden');
   }
 
-  // Enable submit button if either field is present
   if (topicVal.length > 0 || descVal.trim().length > 0) {
     submitBtn.disabled = false;
   } else {
@@ -400,7 +370,7 @@ async function handleSubmitStory() {
       body: JSON.stringify({
         topic,
         description,
-        language: languageSelect.value,
+        language: 'en-US',
         timestamp: new Date().toISOString()
       })
     });
@@ -418,10 +388,6 @@ async function handleSubmitStory() {
       data.message || 'Row appended to Google Sheet.',
       'success'
     );
-
-    if (data.entry) {
-      addStoryToFeed(data.entry);
-    }
 
     // Reset inputs
     topicInput.value = '';
@@ -441,105 +407,6 @@ async function handleSubmitStory() {
     btnSpinner.classList.add('hidden');
     updateFieldStates();
   }
-}
-
-/**
- * Add story card to session feed
- */
-function addStoryToFeed(entry) {
-  if (emptyState) emptyState.classList.add('hidden');
-
-  const card = document.createElement('div');
-  card.className = 'story-card';
-
-  const badgeClass = entry.syncedToSheet ? 'entry-badge synced' : 'entry-badge demo';
-  const badgeLabel = entry.syncedToSheet ? '🟢 Google Sheet Synced' : '🟡 Local Log';
-
-  card.innerHTML = `
-    <div class="story-card-header">
-      <div class="story-card-title">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#a5b4fc" stroke-width="2">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-        </svg>
-        <span>${escapeHtml(entry.topic || '(Untitled Topic)')}</span>
-      </div>
-      <span class="${badgeClass}">${badgeLabel}</span>
-    </div>
-    <div class="story-card-desc">${escapeHtml(entry.description || '(No description provided)')}</div>
-    <div class="story-card-footer">
-      <span class="story-card-time">${escapeHtml(entry.timestamp)} &bull; ${escapeHtml(entry.language || 'en-US')}</span>
-      <button class="story-copy-btn" title="Copy story to clipboard">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-        Copy
-      </button>
-    </div>
-  `;
-
-  const copyBtn = card.querySelector('.story-copy-btn');
-  copyBtn.addEventListener('click', () => {
-    const fullText = `Topic: ${entry.topic}\nDescription: ${entry.description}`;
-    navigator.clipboard.writeText(fullText).then(() => {
-      copyBtn.innerHTML = '✓ Copied';
-      setTimeout(() => {
-        copyBtn.innerHTML = `
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-          </svg> Copy
-        `;
-      }, 1800);
-    });
-  });
-
-  entriesList.insertBefore(card, entriesList.firstChild);
-  const currentCount = entriesList.querySelectorAll('.story-card').length;
-  historyBadgeCount.textContent = currentCount;
-}
-
-/**
- * Fetch backend status
- */
-async function checkBackendStatus() {
-  try {
-    const res = await fetch('/api/status');
-    const data = await res.json();
-
-    if (data.hasServiceAccount) {
-      connectionStatusBadge.className = 'status-badge online';
-      statusBadgeText.textContent = `🟢 Sheet Ready`;
-    } else {
-      connectionStatusBadge.className = 'status-badge demo';
-      statusBadgeText.textContent = `🟡 Add Service Account`;
-    }
-
-    if (data.sheetUrl) {
-      openSheetLink.href = data.sheetUrl;
-    }
-
-    return data;
-  } catch (err) {
-    connectionStatusBadge.className = 'status-badge demo';
-    statusBadgeText.textContent = '⚪ Server Offline';
-    return null;
-  }
-}
-
-/**
- * Fetch past entries
- */
-async function loadHistory() {
-  try {
-    const res = await fetch('/api/history');
-    const data = await res.json();
-    if (data.entries && data.entries.length > 0) {
-      if (emptyState) emptyState.classList.add('hidden');
-      data.entries.forEach(entry => addStoryToFeed(entry));
-    }
-  } catch (e) {}
 }
 
 /**
@@ -576,16 +443,6 @@ function showToast(title, subtitle, type = 'success') {
   }, 6000);
 }
 
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
 /* ==========================================================================
    Event Listeners
    ========================================================================== */
@@ -612,15 +469,6 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Language Select change
-languageSelect.addEventListener('change', () => {
-  if (isUserIntentRecording && activeRecordingField) {
-    const current = activeRecordingField;
-    stopRecording();
-    setTimeout(() => startFieldRecording(current), 200);
-  }
-});
-
 // Submit Button
 submitBtn.addEventListener('click', handleSubmitStory);
 
@@ -629,17 +477,7 @@ toastCloseBtn.addEventListener('click', () => {
   toastMessage.classList.add('hidden');
 });
 
-// Clear History
-clearHistoryBtn.addEventListener('click', () => {
-  const cards = entriesList.querySelectorAll('.story-card');
-  cards.forEach(card => card.remove());
-  if (emptyState) emptyState.classList.remove('hidden');
-  historyBadgeCount.textContent = '0';
-});
-
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
   updateFieldStates();
-  checkBackendStatus();
-  loadHistory();
 });
