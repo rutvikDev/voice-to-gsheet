@@ -82,12 +82,14 @@ function playTone(type = 'start') {
 /**
  * Toggle recording on a specified field ('topic' or 'desc')
  */
-async function toggleFieldRecording(fieldName) {
+function toggleFieldRecording(fieldName) {
+  // If already recording on this field, stop
   if (isUserIntentRecording && activeRecordingField === fieldName) {
     stopRecording();
     return;
   }
 
+  // If recording on another field, stop first then switch
   if (isUserIntentRecording) {
     stopRecording();
     setTimeout(() => {
@@ -102,7 +104,7 @@ async function toggleFieldRecording(fieldName) {
 /**
  * Start speech recognition targeting a specific input
  */
-async function startFieldRecording(fieldName) {
+function startFieldRecording(fieldName) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
@@ -114,29 +116,13 @@ async function startFieldRecording(fieldName) {
     return;
   }
 
-  // Request microphone permission if not yet granted
-  try {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-    }
-  } catch (permErr) {
-    console.warn('Microphone permission query notice:', permErr);
-    if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
-      showToast(
-        'Microphone Blocked',
-        'Please click the microphone icon in your browser address bar and choose "Allow".',
-        'error'
-      );
-      return;
-    }
-  }
-
+  // Clean up any stale instances or timers
   cleanUpExistingRecognition();
 
   activeRecordingField = fieldName;
   isUserIntentRecording = true;
 
+  // Snapshot the current text in the field so speech appends smoothly
   if (fieldName === 'topic') {
     baseTextBeforeSpeech = topicInput.value ? topicInput.value.trim() + ' ' : '';
   } else {
@@ -148,58 +134,72 @@ async function startFieldRecording(fieldName) {
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.lang = 'en-US';
+
+    // Use detected locale (e.g. en-IN or en-US) so speech accents match accurately
+    const userLocale = navigator.language || (navigator.languages && navigator.languages[0]) || 'en-US';
+    recognition.lang = userLocale;
+    console.log('[SpeechRecognition] Initializing with locale:', userLocale);
 
     recognition.onstart = () => {
+      console.log('[SpeechRecognition] onstart fired');
       playTone('start');
       if (activeFieldPill) activeFieldPill.classList.remove('hidden');
 
       if (activeRecordingField === 'topic') {
-        if (listeningFieldText) listeningFieldText.textContent = 'Listening to Topic...';
+        if (listeningFieldText) listeningFieldText.textContent = 'Listening to Topic... Speak now';
         topicMicBtn.classList.add('active');
         topicWrapper.classList.add('recording');
         topicMicBtn.setAttribute('title', 'Listening... Click to stop');
       } else if (activeRecordingField === 'desc') {
-        if (listeningFieldText) listeningFieldText.textContent = 'Listening to Description...';
+        if (listeningFieldText) listeningFieldText.textContent = 'Listening to Description... Speak now';
         descMicBtn.classList.add('active');
         descWrapper.classList.add('recording');
         descMicBtn.setAttribute('title', 'Listening... Click to stop');
       }
     };
 
-    recognition.onresult = (event) => {
-      let interim = '';
-      let completed = '';
+    recognition.onaudiostart = () => {
+      console.log('[SpeechRecognition] Audio capture started by browser');
+    };
 
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const text = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          completed += text + ' ';
-        } else {
-          interim += text;
+    recognition.onspeechstart = () => {
+      console.log('[SpeechRecognition] Speech sound detected');
+      if (listeningFieldText) {
+        listeningFieldText.textContent = 'Transcribing voice in real-time...';
+      }
+    };
+
+    recognition.onresult = (event) => {
+      console.log('[SpeechRecognition] onresult fired with', event.results.length, 'results');
+      let sessionText = '';
+
+      for (let i = 0; i < event.results.length; ++i) {
+        if (event.results[i] && event.results[i][0]) {
+          sessionText += event.results[i][0].transcript + ' ';
         }
       }
 
-      if (completed) {
-        baseTextBeforeSpeech += completed;
-      }
+      sessionText = sessionText.trim();
+      if (!sessionText) return;
 
-      let combined = (baseTextBeforeSpeech + interim).trimStart();
-      if (combined.length > 0) {
-        combined = combined.charAt(0).toUpperCase() + combined.slice(1);
-      }
+      console.log('[SpeechRecognition] Transcript text:', sessionText);
+
+      const combined = (baseTextBeforeSpeech + sessionText).trimStart();
+      const formatted = combined.charAt(0).toUpperCase() + combined.slice(1);
 
       if (activeRecordingField === 'topic') {
-        topicInput.value = combined;
+        topicInput.value = formatted;
       } else if (activeRecordingField === 'desc') {
-        descInput.value = combined;
+        descInput.value = formatted;
       }
 
       updateFieldStates();
     };
 
     recognition.onerror = (event) => {
-      // Ignored non-fatal events
+      console.log('[SpeechRecognition] onerror:', event.error);
+
+      // Benign lifecycle events in Web Speech API
       if (event.error === 'aborted' || event.error === 'no-speech') {
         return;
       }
@@ -207,23 +207,25 @@ async function startFieldRecording(fieldName) {
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         showToast(
           'Microphone Blocked',
-          'Please allow microphone access in your browser address bar.',
+          'Please allow microphone permissions in your browser address bar.',
           'error'
         );
         stopRecording();
-      } else {
-        console.warn('Speech recognition notice:', event.error);
+      } else if (event.error === 'network') {
+        console.warn('Network hiccup in Google speech recognition; re-establishing connection...');
       }
     };
 
     recognition.onend = () => {
+      console.log('[SpeechRecognition] onend fired');
+      // If user hasn't explicitly stopped, restart with a cooldown
       if (isUserIntentRecording && activeRecordingField) {
         restartTimeout = setTimeout(() => {
           if (isUserIntentRecording && activeRecordingField) {
             try {
               startFieldRecording(activeRecordingField);
             } catch (err) {
-              console.warn('Restart exception:', err);
+              console.warn('Restart notice:', err);
             }
           }
         }, 150);
@@ -264,6 +266,8 @@ function cleanUpExistingRecognition() {
 
   if (recognition) {
     recognition.onstart = null;
+    recognition.onaudiostart = null;
+    recognition.onspeechstart = null;
     recognition.onresult = null;
     recognition.onerror = null;
     recognition.onend = null;
@@ -370,7 +374,7 @@ async function handleSubmitStory() {
       body: JSON.stringify({
         topic,
         description,
-        language: 'en-US',
+        language: navigator.language || 'en-US',
         timestamp: new Date().toISOString()
       })
     });
