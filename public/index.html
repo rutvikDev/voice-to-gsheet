@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voice to Google Sheets | Speech Recognition Web App</title>
-  <meta name="description" content="Capture your voice in real time with high speech-to-text accuracy and sync directly to Google Sheets. Ready for Render deployment.">
+  <title>Storyteller Studio | Voice to Google Sheets</title>
+  <meta name="description" content="Storyteller Voice Studio: Speak your story topic and description with real-time speech recognition and sync directly to Google Sheets.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -21,15 +21,15 @@
       <div class="brand">
         <div class="logo-box">
           <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="22" />
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            <path d="M12 6l-2 4h4l-2 4" stroke="#a5b4fc" stroke-width="1.8" />
           </svg>
           <div class="logo-sparkle"></div>
         </div>
         <div>
-          <h1 class="brand-title">Voice to Sheet</h1>
-          <p class="brand-tagline">Real-time voice recognition & instant Google Sheets sync</p>
+          <h1 class="brand-title">Storyteller Studio</h1>
+          <p class="brand-tagline">Speak your Topic &amp; Description &bull; Sync directly to Google Sheets</p>
         </div>
       </div>
 
@@ -41,9 +41,9 @@
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
           </svg>
-          Connect Google Sheet
+          Authorize Google Sheet
         </a>
-        <a id="openSheetLink" href="#" target="_blank" rel="noopener" class="sheet-link-btn hidden" title="Open Google Sheet in new tab">
+        <a id="openSheetLink" href="https://docs.google.com/spreadsheets/d/1s9CqUGiXMsGFncCJJ7d002kWkCETk09rP1rkwSy2I9Y/edit#gid=0" target="_blank" rel="noopener" class="sheet-link-btn" title="Open Google Sheet in new tab">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2" />
             <path d="M3 9h18" />
@@ -56,18 +56,10 @@
           <span class="status-dot"></span>
           <span id="statusBadgeText">Checking...</span>
         </button>
-        <button id="instructionsBtn" class="guide-btn" title="Setup Instructions">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-            <line x1="12" y1="17" x2="12.01" y2="17" />
-          </svg>
-          Setup Guide
-        </button>
       </div>
     </header>
 
-    <!-- Main Workspace Card -->
+    <!-- Main Workspace Card (Storyteller Form) -->
     <main class="main-card">
       <div class="card-inner">
         <!-- Settings & Dialect selection toolbar -->
@@ -96,9 +88,9 @@
           </div>
 
           <div class="toolbar-right">
-            <div id="listeningIndicator" class="listening-pill hidden">
+            <div id="activeFieldPill" class="listening-pill hidden">
               <span class="pulsing-red-dot"></span>
-              <span class="listening-text">Listening... Speak clearly</span>
+              <span id="listeningFieldText" class="listening-text">Listening...</span>
               <div class="sound-wave">
                 <span></span><span></span><span></span><span></span><span></span>
               </div>
@@ -106,91 +98,147 @@
           </div>
         </div>
 
-        <!-- Text Field Area with Embedded Microphone Icon on the Right -->
-        <div class="input-container">
-          <label for="transcriptionInput" class="visually-hidden">Transcribed Speech</label>
-          <div class="textarea-wrapper" id="textareaWrapper">
-            <textarea 
-              id="transcriptionInput" 
-              placeholder="Click the microphone icon on the right to start speaking, or type directly here..."
-              rows="4"
-              spellcheck="true"
-            ></textarea>
+        <form id="storyForm" onsubmit="return false;" class="story-form">
+          <!-- FIELD 1: Story Topic -->
+          <div class="form-field-group">
+            <div class="field-label-row">
+              <label for="topicInput" class="form-label">
+                <span class="label-badge">1</span>
+                <span>Story Topic</span>
+                <span class="required-star">*</span>
+              </label>
+              <span class="field-hint">Click mic on the right to speak the topic</span>
+            </div>
 
-            <!-- Action buttons inside the right side of the text field -->
-            <div class="input-actions-right">
-              <button 
-                type="button" 
-                id="clearBtn" 
-                class="action-btn clear-btn hidden" 
-                title="Clear text"
-                aria-label="Clear text"
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-
-              <button 
-                type="button" 
-                id="micBtn" 
-                class="action-btn mic-btn" 
-                title="Click to speak (Microphone)"
-                aria-label="Toggle Microphone Recording"
-              >
-                <!-- Mic SVG -->
-                <svg id="micIcon" class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="22" />
-                </svg>
-                <div class="mic-ring-wave"></div>
-              </button>
+            <div class="input-wrapper field-single-line" id="topicWrapper">
+              <input 
+                type="text" 
+                id="topicInput" 
+                placeholder="e.g. The Legend of the Whispering Peaks"
+                autocomplete="off"
+                spellcheck="true"
+              />
+              <div class="input-actions-right">
+                <button 
+                  type="button" 
+                  id="clearTopicBtn" 
+                  class="action-btn clear-btn hidden" 
+                  title="Clear topic"
+                  aria-label="Clear topic"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+                <button 
+                  type="button" 
+                  id="topicMicBtn" 
+                  class="action-btn mic-btn" 
+                  title="Speak Story Topic (Microphone)"
+                  aria-label="Toggle Microphone for Topic"
+                >
+                  <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                  </svg>
+                  <div class="mic-ring-wave"></div>
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Bottom Meta bar for Input: Character counter & Accuracy badge -->
-          <div class="input-meta">
-            <div class="meta-left">
-              <span id="charCount">0 characters</span>
-              <span class="meta-dot">•</span>
-              <span id="wordCount">0 words</span>
+          <!-- FIELD 2: Short Description -->
+          <div class="form-field-group">
+            <div class="field-label-row">
+              <label for="descInput" class="form-label">
+                <span class="label-badge">2</span>
+                <span>Short Description</span>
+                <span class="required-star">*</span>
+              </label>
+              <span class="field-hint">Click mic on the right to speak the summary</span>
             </div>
-            <div class="meta-right">
-              <span id="accuracyBadge" class="accuracy-badge">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+
+            <div class="input-wrapper field-multi-line" id="descWrapper">
+              <textarea 
+                id="descInput" 
+                placeholder="Speak or type a short description, key characters, and the central plot of your story..."
+                rows="4"
+                spellcheck="true"
+              ></textarea>
+              <div class="input-actions-right">
+                <button 
+                  type="button" 
+                  id="clearDescBtn" 
+                  class="action-btn clear-btn hidden" 
+                  title="Clear description"
+                  aria-label="Clear description"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+                <button 
+                  type="button" 
+                  id="descMicBtn" 
+                  class="action-btn mic-btn" 
+                  title="Speak Short Description (Microphone)"
+                  aria-label="Toggle Microphone for Description"
+                >
+                  <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                  </svg>
+                  <div class="mic-ring-wave"></div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Meta row under Description -->
+            <div class="input-meta">
+              <div class="meta-left">
+                <span id="descCharCount">0 characters</span>
+                <span class="meta-dot">•</span>
+                <span id="descWordCount">0 words</span>
+              </div>
+              <div class="meta-right">
+                <span class="accuracy-badge">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                  100% Editable Voice Accuracy
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="submit-action-wrapper">
+            <button type="button" id="submitBtn" class="submit-btn" disabled>
+              <span class="btn-content">
+                <svg class="sheet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M3 9h18" />
+                  <path d="M3 15h18" />
+                  <path d="M9 3v18" />
                 </svg>
-                100% Editable Accuracy
+                <span id="submitBtnText">Save Story to Google Sheet</span>
+                <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
               </span>
-            </div>
+              <span class="btn-spinner hidden" id="btnSpinner"></span>
+            </button>
+            <div class="shortcut-hint">Tip: Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to save immediately</div>
           </div>
-        </div>
+        </form>
 
-        <!-- Submit to Google Sheet Button below -->
-        <div class="submit-action-wrapper">
-          <button type="button" id="submitBtn" class="submit-btn" disabled>
-            <span class="btn-content">
-              <svg class="sheet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M3 9h18" />
-                <path d="M3 15h18" />
-                <path d="M9 3v18" />
-              </svg>
-              <span id="submitBtnText">Submit to Google Sheet</span>
-              <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-              </svg>
-            </span>
-            <span class="btn-spinner hidden" id="btnSpinner"></span>
-          </button>
-          <div class="shortcut-hint">Tip: Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to submit immediately</div>
-        </div>
-
-        <!-- Result / Alert banner -->
+        <!-- Result / Notification Banner -->
         <div id="toastMessage" class="toast-banner hidden" role="alert">
           <div class="toast-icon" id="toastIcon"></div>
           <div class="toast-body">
@@ -203,11 +251,11 @@
       </div>
     </main>
 
-    <!-- Activity & Session Synced Feed -->
+    <!-- Submitted Stories Feed -->
     <section class="activity-section">
       <div class="section-header">
         <div class="section-title-wrap">
-          <h2 class="section-title">Submitted Entries</h2>
+          <h2 class="section-title">Submitted Stories</h2>
           <span id="historyBadgeCount" class="count-pill">0</span>
         </div>
         <button id="clearHistoryBtn" class="clear-history-btn" title="Clear displayed logs">Clear List</button>
@@ -217,145 +265,19 @@
         <div class="empty-state" id="emptyState">
           <div class="empty-icon-box">
             <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
             </svg>
           </div>
-          <p class="empty-title">No entries submitted yet</p>
-          <p class="empty-desc">Click the microphone icon above, speak your message, and hit Submit to record rows in Google Sheets.</p>
+          <p class="empty-title">No stories submitted yet</p>
+          <p class="empty-desc">Click the mic icon on <strong>Topic</strong> or <strong>Short Description</strong>, speak your idea, and click Save to append the row directly into your Google Sheet.</p>
         </div>
       </div>
     </section>
 
-    <!-- Setup Guide Modal -->
-    <div id="guideModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modal-card">
-        <div class="modal-header">
-          <div class="modal-header-info">
-            <div class="modal-icon-badge">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-              </svg>
-            </div>
-            <div>
-              <h3 id="modalTitle" class="modal-title">Google Sheets & Render Setup Guide</h3>
-              <p class="modal-subtitle">Follow these quick steps to connect your live sheet & deploy to Render</p>
-            </div>
-          </div>
-          <button id="closeModalBtn" class="modal-close" aria-label="Close dialog">&times;</button>
-        </div>
-
-        <div class="modal-body">
-          <div class="tabs">
-            <button class="tab-btn active" data-tab="tab-quick">⚡ Quick Method (Apps Script)</button>
-            <button class="tab-btn" data-tab="tab-service">🛡️ Service Account Method</button>
-            <button class="tab-btn" data-tab="tab-render">☁️ Deploy to Render</button>
-          </div>
-
-          <!-- Tab 1: Apps Script Webhook (2 minutes) -->
-          <div id="tab-quick" class="tab-pane active">
-            <div class="step-card">
-              <div class="step-num">1</div>
-              <div class="step-content">
-                <h4>Open your Google Sheet & Apps Script</h4>
-                <p>Create a new spreadsheet at <a href="https://sheets.new" target="_blank" rel="noopener">sheets.new</a>, then click <strong>Extensions &gt; Apps Script</strong>.</p>
-              </div>
-            </div>
-            <div class="step-card">
-              <div class="step-num">2</div>
-              <div class="step-content">
-                <h4>Paste the Webhook Code</h4>
-                <p>Copy the code from <code>google-apps-script.js</code> (included in this project) and paste it into the editor.</p>
-              </div>
-            </div>
-            <div class="step-card">
-              <div class="step-num">3</div>
-              <div class="step-content">
-                <h4>Deploy as Web App</h4>
-                <p>Click <strong>Deploy &gt; New deployment</strong>. Choose <strong>Web app</strong>, set <em>Execute as: "Me"</em>, and <strong>Who has access: "Anyone"</strong>.</p>
-              </div>
-            </div>
-            <div class="step-card">
-              <div class="step-num">4</div>
-              <div class="step-content">
-                <h4>Set Environment Variable</h4>
-                <p>Copy the generated Web app URL and set in your <code>.env</code> or Render Environment Variables:</p>
-                <pre class="code-snippet">GOOGLE_SHEET_WEBHOOK_URL=https://script.google.com/macros/s/YOUR_URL/exec</pre>
-              </div>
-            </div>
-          </div>
-
-          <!-- Tab 2: Service Account -->
-          <div id="tab-service" class="tab-pane">
-            <div class="step-card">
-              <div class="step-num">1</div>
-              <div class="step-content">
-                <h4>Google Cloud Console</h4>
-                <p>Enable the <strong>Google Sheets API</strong> in Google Cloud Console.</p>
-              </div>
-            </div>
-            <div class="step-card">
-              <div class="step-num">2</div>
-              <div class="step-content">
-                <h4>Create Service Account</h4>
-                <p>Create a service account, download JSON key, and share your Google Sheet with the service account email as <strong>Editor</strong>.</p>
-              </div>
-            </div>
-            <div class="step-card">
-              <div class="step-num">3</div>
-              <div class="step-content">
-                <h4>Set Environment Variables</h4>
-                <pre class="code-snippet">GOOGLE_SHEET_ID=your_sheet_id
-GOOGLE_CLIENT_EMAIL=your-sa@project.iam.gserviceaccount.com
-GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."</pre>
-              </div>
-            </div>
-          </div>
-
-          <!-- Tab 3: Render Deployment -->
-          <div id="tab-render" class="tab-pane">
-            <div class="step-card">
-              <div class="step-num">1</div>
-              <div class="step-content">
-                <h4>Push to GitHub</h4>
-                <pre class="code-snippet">git init
-git add .
-git commit -m "Voice to Google Sheets ready"
-git push origin main</pre>
-              </div>
-            </div>
-            <div class="step-card">
-              <div class="step-num">2</div>
-              <div class="step-content">
-                <h4>Create Web Service on Render</h4>
-                <p>On <a href="https://render.com" target="_blank" rel="noopener">Render</a>, create a <strong>New &gt; Web Service</strong> and select your GitHub repo.</p>
-                <p>Build Command: <code>npm install</code> &bull; Start Command: <code>npm start</code></p>
-              </div>
-            </div>
-            <div class="step-card">
-              <div class="step-num">3</div>
-              <div class="step-content">
-                <h4>Add Environment Variables on Render</h4>
-                <p>In the <strong>Environment</strong> tab on Render, add your <code>GOOGLE_SHEET_WEBHOOK_URL</code> or Service Account keys.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button id="modalTestConnectionBtn" class="btn-secondary">Test Connection</button>
-          <button id="modalDoneBtn" class="btn-primary">Got it!</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Voice to Google Sheets &bull; Engineered for maximum speech accuracy & seamless cloud synchronization</p>
+      <p>Storyteller Studio &bull; Direct Google Sheets Sync &bull; Target Sheet ID: <code>1s9CqUGiXMsGFncCJJ7d002kWkCETk09rP1rkwSy2I9Y</code></p>
     </footer>
   </div>
 

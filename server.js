@@ -19,7 +19,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // In-memory session log for live UI activity feed
-const sessionSubmissions = [];
+const sessionStories = [];
 
 /**
  * Helper to update or append variables in .env file
@@ -45,15 +45,6 @@ function updateEnvFile(key, value) {
   } catch (err) {
     console.error(`[ENV] Failed to update .env:`, err);
   }
-}
-
-/**
- * Helper to get clean private key regardless of how it was formatted
- */
-function getFormattedPrivateKey() {
-  const key = process.env.GOOGLE_PRIVATE_KEY;
-  if (!key) return null;
-  return key.replace(/\\n/g, '\n').replace(/^["']|["']$/g, '');
 }
 
 /**
@@ -91,20 +82,20 @@ function getIntegrationConfig() {
     };
   }
 
-  // 3. Service Account
+  // 3. Service Account fallback
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = getFormattedPrivateKey();
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
   if (clientEmail && privateKey && sheetId) {
     return {
       type: 'service_account',
       clientEmail,
-      privateKey,
+      privateKey: privateKey.replace(/\\n/g, '\n').replace(/^["']|["']$/g, ''),
       sheetId,
       sheetName
     };
   }
 
-  // 4. Webhook
+  // 4. Webhook fallback
   const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL;
   if (webhookUrl) {
     return {
@@ -135,6 +126,31 @@ function getOAuth2Client() {
 }
 
 /**
+ * Ensure header row exists on sheet
+ */
+async function ensureHeaders(sheets, spreadsheetId, sheetName) {
+  try {
+    const existing = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A1:D1`
+    });
+
+    if (!existing.data.values || existing.data.values.length === 0) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1:D1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [['Timestamp', 'Topic', 'Short Description', 'Language']]
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Header check warning:', err.message);
+  }
+}
+
+/**
  * Append row via OAuth 2.0
  */
 async function appendViaOAuth(config, rowData) {
@@ -143,9 +159,12 @@ async function appendViaOAuth(config, rowData) {
 
   const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
+  // Ensure header row exists if sheet is fresh
+  await ensureHeaders(sheets, config.sheetId, config.sheetName);
+
   const response = await sheets.spreadsheets.values.append({
     spreadsheetId: config.sheetId,
-    range: `${config.sheetName}!A:C`,
+    range: `${config.sheetName}!A:D`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
@@ -167,10 +186,11 @@ async function appendViaServiceAccount(config, rowData) {
   });
 
   const sheets = google.sheets({ version: 'v4', auth });
+  await ensureHeaders(sheets, config.sheetId, config.sheetName);
 
   const response = await sheets.spreadsheets.values.append({
     spreadsheetId: config.sheetId,
-    range: `${config.sheetName}!A:C`,
+    range: `${config.sheetName}!A:D`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
@@ -227,7 +247,7 @@ app.get('/api/auth/google', (req, res) => {
   }
 });
 
-// Step 2: Google redirects back to this callback (registered in Google Cloud console)
+// Step 2: Google redirects back to this callback
 app.get('/api/auth/gmail/callback', async (req, res) => {
   const { code, error } = req.query;
 
@@ -248,40 +268,15 @@ app.get('/api/auth/gmail/callback', async (req, res) => {
       updateEnvFile('GOOGLE_REFRESH_TOKEN', tokens.refresh_token);
     }
 
-    let sheetId = process.env.GOOGLE_SHEET_ID;
+    const sheetId = process.env.GOOGLE_SHEET_ID;
 
-    // If no Google Sheet ID is set yet, automatically create one in user's Google Drive!
-    if (!sheetId) {
-      console.log('Creating a new Google Sheet for voice transcripts...');
+    // Verify sheet access and prepare headers
+    try {
       const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
-      const createRes = await sheets.spreadsheets.create({
-        requestBody: {
-          properties: {
-            title: 'Voice to Google Sheets - Voice Log'
-          },
-          sheets: [
-            {
-              properties: {
-                title: 'Sheet1'
-              }
-            }
-          ]
-        }
-      });
-
-      sheetId = createRes.data.spreadsheetId;
-      updateEnvFile('GOOGLE_SHEET_ID', sheetId);
-
-      // Add header row with styled labels
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: sheetId,
-        range: 'Sheet1!A1:C1',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-          values: [['Timestamp', 'Speech Transcript', 'Language / Notes']]
-        }
-      });
-      console.log(`Created new Google Sheet with ID: ${sheetId}`);
+      await ensureHeaders(sheets, sheetId, process.env.GOOGLE_SHEET_NAME || 'Sheet1');
+      console.log(`Successfully verified and prepared target Sheet ID: ${sheetId}`);
+    } catch (sheetErr) {
+      console.warn('Sheet access notice on auth:', sheetErr.message);
     }
 
     res.redirect(`/?auth_success=true&sheetId=${sheetId}`);
@@ -311,7 +306,7 @@ app.get('/api/status', (req, res) => {
       sheetUrl: sheetId ? `https://docs.google.com/spreadsheets/d/${sheetId}/edit` : null,
       sheetName: process.env.GOOGLE_SHEET_NAME || 'Sheet1'
     },
-    totalEntriesLogged: sessionSubmissions.length
+    totalEntriesLogged: sessionStories.length
   });
 });
 
@@ -320,58 +315,62 @@ app.get('/api/status', (req, res) => {
  */
 app.get('/api/history', (req, res) => {
   res.json({
-    entries: sessionSubmissions.slice(-20).reverse()
+    entries: sessionStories.slice(-20).reverse()
   });
 });
 
 /**
- * POST /api/submit - Receive speech text and write to Google Sheet
+ * POST /api/submit - Receive Story Topic & Short Description and write to Google Sheet
  */
 app.post('/api/submit', async (req, res) => {
   try {
-    const { text, language = 'en-US', timestamp = new Date().toISOString() } = req.body;
+    const { topic, description, text, language = 'en-US', timestamp = new Date().toISOString() } = req.body;
 
-    if (!text || typeof text !== 'string' || !text.trim()) {
+    const cleanTopic = (topic || '').trim();
+    const cleanDesc = (description || text || '').trim();
+
+    if (!cleanTopic && !cleanDesc) {
       return res.status(400).json({
         success: false,
-        error: 'Text content is required and cannot be empty.'
+        error: 'Please enter at least a Topic or a Short Description for the story.'
       });
     }
 
-    const cleanText = text.trim();
     const formattedTimestamp = new Date(timestamp).toLocaleString('en-US', {
       dateStyle: 'medium',
       timeStyle: 'medium'
     });
 
-    const rowData = [formattedTimestamp, cleanText, language];
+    const rowData = [formattedTimestamp, cleanTopic, cleanDesc, language];
     const config = getIntegrationConfig();
 
     let message = '';
 
     if (config.type === 'oauth') {
       await appendViaOAuth(config, rowData);
-      message = 'Successfully written to your Google Sheet via Google OAuth!';
+      message = 'Story successfully saved to your Google Sheet!';
     } else if (config.type === 'service_account') {
       await appendViaServiceAccount(config, rowData);
-      message = 'Successfully written directly to Google Sheet via Google Sheets API!';
+      message = 'Story saved directly to Google Sheet via Service Account!';
     } else if (config.type === 'webhook') {
       await appendViaWebhook(config.webhookUrl, {
         timestamp: formattedTimestamp,
-        text: cleanText,
+        topic: cleanTopic,
+        description: cleanDesc,
         language
       });
-      message = 'Successfully sent to Google Sheet via Google Apps Script Webhook!';
+      message = 'Story sent to Google Sheet via Webhook!';
     } else {
       // Demo / needs auth mode
       message = config.type === 'oauth_needs_auth'
-        ? 'OAuth configured! Click "Connect with Google" above to link your Google Sheet.'
+        ? 'Please click "Authorize Google Sheet" above once to link with your Google account.'
         : 'Saved in Demo Mode. Connect your Google account to sync live rows.';
     }
 
     const entry = {
       id: Date.now().toString(),
-      text: cleanText,
+      topic: cleanTopic || '(Untitled Topic)',
+      description: cleanDesc,
       timestamp: formattedTimestamp,
       language,
       mode: config.type,
@@ -379,7 +378,7 @@ app.post('/api/submit', async (req, res) => {
       success: true
     };
 
-    sessionSubmissions.push(entry);
+    sessionStories.push(entry);
 
     return res.json({
       success: true,
@@ -389,10 +388,10 @@ app.post('/api/submit', async (req, res) => {
       entry
     });
   } catch (error) {
-    console.error('Error submitting to Google Sheet:', error);
+    console.error('Error submitting story to Google Sheet:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to write entry to Google Sheet.'
+      error: error.message || 'Failed to write story to Google Sheet.'
     });
   }
 });

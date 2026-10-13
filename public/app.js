@@ -1,53 +1,57 @@
 /**
- * Voice to Google Sheets - Client Application
+ * Storyteller Studio - Client Application
  * Features:
- * - Web Speech API (webkitSpeechRecognition) with continuous listening & interim real-time preview
- * - Audio feedback (Web Audio API synthesized chimes)
- * - Editable transcript with live word/character counters
- * - Keyboard shortcuts (Ctrl+Enter / Cmd+Enter to submit)
- * - Google Sheets backend submission with visual status updates
- * - Live session activity log & setup guide modal
+ * - Two separate voice recognition fields: Topic & Short Description
+ * - Independent microphone buttons on the right side of both inputs
+ * - Real-time interim preview & auto-capitalization
+ * - Synced directly to Google Sheet: 1s9CqUGiXMsGFncCJJ7d002kWkCETk09rP1rkwSy2I9Y
+ * - Pleasant synthesized Web Audio chimes
  */
 
-// DOM Elements
-const transcriptionInput = document.getElementById('transcriptionInput');
-const textareaWrapper = document.getElementById('textareaWrapper');
-const micBtn = document.getElementById('micBtn');
-const clearBtn = document.getElementById('clearBtn');
+// DOM Elements - Fields & Buttons
+const topicInput = document.getElementById('topicInput');
+const topicWrapper = document.getElementById('topicWrapper');
+const topicMicBtn = document.getElementById('topicMicBtn');
+const clearTopicBtn = document.getElementById('clearTopicBtn');
+
+const descInput = document.getElementById('descInput');
+const descWrapper = document.getElementById('descWrapper');
+const descMicBtn = document.getElementById('descMicBtn');
+const clearDescBtn = document.getElementById('clearDescBtn');
+
+const descCharCount = document.getElementById('descCharCount');
+const descWordCount = document.getElementById('descWordCount');
+
 const submitBtn = document.getElementById('submitBtn');
 const submitBtnText = document.getElementById('submitBtnText');
 const btnSpinner = document.getElementById('btnSpinner');
+
 const languageSelect = document.getElementById('languageSelect');
-const listeningIndicator = document.getElementById('listeningIndicator');
-const charCount = document.getElementById('charCount');
-const wordCount = document.getElementById('wordCount');
+const activeFieldPill = document.getElementById('activeFieldPill');
+const listeningFieldText = document.getElementById('listeningFieldText');
+
 const toastMessage = document.getElementById('toastMessage');
 const toastTitle = document.getElementById('toastTitle');
 const toastSubtitle = document.getElementById('toastSubtitle');
 const toastCloseBtn = document.getElementById('toastCloseBtn');
+
 const entriesList = document.getElementById('entriesList');
 const emptyState = document.getElementById('emptyState');
 const historyBadgeCount = document.getElementById('historyBadgeCount');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
 const connectionStatusBtn = document.getElementById('connectionStatusBtn');
 const statusBadgeText = document.getElementById('statusBadgeText');
-const instructionsBtn = document.getElementById('instructionsBtn');
 const googleAuthBtn = document.getElementById('googleAuthBtn');
 const openSheetLink = document.getElementById('openSheetLink');
-const guideModal = document.getElementById('guideModal');
-const closeModalBtn = document.getElementById('closeModalBtn');
-const modalDoneBtn = document.getElementById('modalDoneBtn');
-const modalTestConnectionBtn = document.getElementById('modalTestConnectionBtn');
 
-// Speech Recognition State
+// State
 let recognition = null;
-let isRecording = false;
+let activeRecordingField = null; // 'topic' | 'desc' | null
 let finalTranscriptBeforeStart = '';
-let activeInterimTranscript = '';
 
-// Audio context for pleasant UI feedback tones
+// Web Audio Tone Synthesis
 let audioCtx = null;
-
 function playTone(type = 'start') {
   try {
     if (!audioCtx) {
@@ -64,7 +68,6 @@ function playTone(type = 'start') {
 
     const now = audioCtx.currentTime;
     if (type === 'start') {
-      // Pleasant rising chime
       osc.frequency.setValueAtTime(440, now);
       osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
       gain.gain.setValueAtTime(0.08, now);
@@ -72,7 +75,6 @@ function playTone(type = 'start') {
       osc.start(now);
       osc.stop(now + 0.15);
     } else if (type === 'stop') {
-      // Gentle lowering tone
       osc.frequency.setValueAtTime(660, now);
       osc.frequency.exponentialRampToValueAtTime(330, now + 0.15);
       gain.gain.setValueAtTime(0.06, now);
@@ -80,34 +82,31 @@ function playTone(type = 'start') {
       osc.start(now);
       osc.stop(now + 0.15);
     } else if (type === 'success') {
-      // Cheerful double chime
-      osc.frequency.setValueAtTime(523.25, now); // C5
-      osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
-      osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.1);
+      osc.frequency.setValueAtTime(783.99, now + 0.2);
       gain.gain.setValueAtTime(0.08, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
       osc.start(now);
       osc.stop(now + 0.35);
     }
-  } catch (err) {
-    // Audio feedback is purely enhancement; silent fallback
-  }
+  } catch (err) {}
 }
 
 /**
- * Initialize Speech Recognition using standard or WebKit vendor prefix
+ * Initialize Speech Recognition
  */
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
     showToast(
-      'Speech Recognition Not Supported',
-      'Your browser does not natively support the Web Speech API. Please open this app in Google Chrome, Microsoft Edge, Safari, or Opera for speech recognition.',
+      'Speech Recognition Notice',
+      'Please open this app in Chrome, Edge, Safari, or Opera to use voice recognition.',
       'error'
     );
-    micBtn.disabled = true;
-    micBtn.title = 'Speech Recognition not supported in this browser';
+    topicMicBtn.disabled = true;
+    descMicBtn.disabled = true;
     return;
   }
 
@@ -118,13 +117,22 @@ function initSpeechRecognition() {
   recognition.lang = languageSelect.value;
 
   recognition.onstart = () => {
-    isRecording = true;
     playTone('start');
-    micBtn.classList.add('active');
-    textareaWrapper.classList.add('recording');
-    listeningIndicator.classList.remove('hidden');
-    micBtn.setAttribute('title', 'Listening... Click to stop microphone');
-    finalTranscriptBeforeStart = transcriptionInput.value ? transcriptionInput.value.trim() + ' ' : '';
+    activeFieldPill.classList.remove('hidden');
+
+    if (activeRecordingField === 'topic') {
+      listeningFieldText.textContent = 'Listening to Topic...';
+      topicMicBtn.classList.add('active');
+      topicWrapper.classList.add('recording');
+      topicMicBtn.setAttribute('title', 'Listening... Click to stop');
+      finalTranscriptBeforeStart = topicInput.value ? topicInput.value.trim() + ' ' : '';
+    } else if (activeRecordingField === 'desc') {
+      listeningFieldText.textContent = 'Listening to Description...';
+      descMicBtn.classList.add('active');
+      descWrapper.classList.add('recording');
+      descMicBtn.setAttribute('title', 'Listening... Click to stop');
+      finalTranscriptBeforeStart = descInput.value ? descInput.value.trim() + ' ' : '';
+    }
   };
 
   recognition.onresult = (event) => {
@@ -132,11 +140,11 @@ function initSpeechRecognition() {
     let completedTranscript = '';
 
     for (let i = event.resultIndex; i < event.results.length; ++i) {
-      const transcriptPiece = event.results[i][0].transcript;
+      const piece = event.results[i][0].transcript;
       if (event.results[i].isFinal) {
-        completedTranscript += transcriptPiece + ' ';
+        completedTranscript += piece + ' ';
       } else {
-        interimTranscript += transcriptPiece;
+        interimTranscript += piece;
       }
     }
 
@@ -144,87 +152,97 @@ function initSpeechRecognition() {
       finalTranscriptBeforeStart += completedTranscript;
     }
 
-    // Capitalize first character if string starts
     let combined = (finalTranscriptBeforeStart + interimTranscript).trimStart();
     if (combined.length > 0) {
       combined = combined.charAt(0).toUpperCase() + combined.slice(1);
     }
 
-    transcriptionInput.value = combined;
-    updateCounters();
+    if (activeRecordingField === 'topic') {
+      topicInput.value = combined;
+    } else if (activeRecordingField === 'desc') {
+      descInput.value = combined;
+    }
+
+    updateFieldStates();
   };
 
   recognition.onerror = (event) => {
-    console.warn('Speech recognition error event:', event.error);
+    console.warn('Speech recognition error:', event.error);
     if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
       showToast(
-        'Microphone Access Denied',
-        'Please grant microphone permissions in your browser address bar to use speech recognition.',
+        'Microphone Permission Required',
+        'Please allow microphone access in your browser to speak.',
         'error'
       );
-    } else if (event.error === 'no-speech') {
-      // Normal when the user paused speaking; recognition will keep waiting
-      return;
-    } else {
-      showToast('Speech Recognition Warning', `Error details: ${event.error}`, 'error');
+      stopRecording();
+    } else if (event.error !== 'no-speech') {
+      showToast('Speech Recognition Warning', `Error: ${event.error}`, 'error');
+      stopRecording();
     }
-    stopRecording();
   };
 
   recognition.onend = () => {
-    if (isRecording) {
-      // If user intended to continue speaking but browser stopped due to silence,
-      // restart automatically if still marked as recording
+    if (activeRecordingField) {
       try {
         recognition.start();
         return;
-      } catch (e) {
-        // Fallback to stopping gracefully
-      }
+      } catch (e) {}
     }
     stopRecording();
   };
 }
 
 /**
- * Toggle Microphone Recording
+ * Start or stop recording on a specific field
  */
-function toggleRecording() {
+function toggleFieldRecording(fieldName) {
   if (!recognition) {
     initSpeechRecognition();
     if (!recognition) return;
   }
 
-  if (isRecording) {
+  if (activeRecordingField === fieldName) {
+    // Stop recording
     stopRecording();
   } else {
-    startRecording();
-  }
-}
-
-function startRecording() {
-  try {
-    recognition.lang = languageSelect.value;
-    recognition.start();
-  } catch (err) {
-    console.error('Error starting recognition:', err);
-    // If recognition is in invalid state, re-instantiate
-    initSpeechRecognition();
-    try {
-      recognition.start();
-    } catch (e) {
-      showToast('Microphone Error', 'Could not initialize speech recognition. Check microphone permissions.', 'error');
+    // If recording on the other field, switch
+    if (activeRecordingField) {
+      stopRecording();
+      setTimeout(() => startFieldRecording(fieldName), 150);
+    } else {
+      startFieldRecording(fieldName);
     }
   }
 }
 
+function startFieldRecording(fieldName) {
+  activeRecordingField = fieldName;
+  try {
+    recognition.lang = languageSelect.value;
+    recognition.start();
+  } catch (err) {
+    console.error('Start recognition failed:', err);
+    initSpeechRecognition();
+    try {
+      recognition.start();
+    } catch (e) {}
+  }
+}
+
 function stopRecording() {
-  isRecording = false;
+  const previousField = activeRecordingField;
+  activeRecordingField = null;
+
   playTone('stop');
-  micBtn.classList.remove('active');
-  textareaWrapper.classList.remove('recording');
-  listeningIndicator.classList.add('hidden');
-  micBtn.setAttribute('title', 'Click to speak (Microphone)');
+  activeFieldPill.classList.add('hidden');
+
+  topicMicBtn.classList.remove('active');
+  topicWrapper.classList.remove('recording');
+  topicMicBtn.setAttribute('title', 'Speak Story Topic (Microphone)');
+
+  descMicBtn.classList.remove('active');
+  descWrapper.classList.remove('recording');
+  descMicBtn.setAttribute('title', 'Speak Short Description (Microphone)');
 
   if (recognition) {
     try {
@@ -232,62 +250,85 @@ function stopRecording() {
     } catch (e) {}
   }
 
-  // Trim whitespace neatly
-  transcriptionInput.value = transcriptionInput.value.trim();
-  updateCounters();
+  if (previousField === 'topic') {
+    topicInput.value = topicInput.value.trim();
+  } else if (previousField === 'desc') {
+    descInput.value = descInput.value.trim();
+  }
+
+  updateFieldStates();
 }
 
 /**
- * Update character and word counters, handle button enable states
+ * Update UI character counts, clear buttons, and submit button
  */
-function updateCounters() {
-  const text = transcriptionInput.value;
-  const chars = text.length;
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+function updateFieldStates() {
+  const topicVal = topicInput.value.trim();
+  const descVal = descInput.value;
 
-  charCount.textContent = `${chars} character${chars === 1 ? '' : 's'}`;
-  wordCount.textContent = `${words} word${words === 1 ? '' : 's'}`;
+  // Clear button for Topic
+  if (topicInput.value.length > 0) {
+    clearTopicBtn.classList.remove('hidden');
+  } else {
+    clearTopicBtn.classList.add('hidden');
+  }
 
-  // Toggle Clear button visibility
-  if (chars > 0) {
-    clearBtn.classList.remove('hidden');
+  // Clear button & counters for Description
+  const descLen = descVal.length;
+  const descWords = descVal.trim() ? descVal.trim().split(/\s+/).length : 0;
+
+  descCharCount.textContent = `${descLen} character${descLen === 1 ? '' : 's'}`;
+  descWordCount.textContent = `${descWords} word${descWords === 1 ? '' : 's'}`;
+
+  if (descLen > 0) {
+    clearDescBtn.classList.remove('hidden');
+  } else {
+    clearDescBtn.classList.add('hidden');
+  }
+
+  // Enable submit button if either field is present
+  if (topicVal.length > 0 || descVal.trim().length > 0) {
     submitBtn.disabled = false;
   } else {
-    clearBtn.classList.add('hidden');
     submitBtn.disabled = true;
   }
 }
 
 /**
- * Clear text field
+ * Clear actions
  */
-function handleClear() {
-  if (isRecording) {
-    stopRecording();
-  }
-  transcriptionInput.value = '';
-  finalTranscriptBeforeStart = '';
-  transcriptionInput.focus();
-  updateCounters();
+function clearTopic() {
+  if (activeRecordingField === 'topic') stopRecording();
+  topicInput.value = '';
+  topicInput.focus();
+  updateFieldStates();
+}
+
+function clearDesc() {
+  if (activeRecordingField === 'desc') stopRecording();
+  descInput.value = '';
+  descInput.focus();
+  updateFieldStates();
 }
 
 /**
- * Submit Transcribed Text to Google Sheet
+ * Submit Story to Google Sheet
  */
-async function handleSubmit() {
-  const text = transcriptionInput.value.trim();
-  if (!text) {
-    showToast('Empty Text', 'Please speak or enter text before submitting.', 'error');
+async function handleSubmitStory() {
+  const topic = topicInput.value.trim();
+  const description = descInput.value.trim();
+
+  if (!topic && !description) {
+    showToast('Empty Form', 'Please enter a Topic or a Short Description before submitting.', 'error');
     return;
   }
 
-  if (isRecording) {
+  if (activeRecordingField) {
     stopRecording();
   }
 
-  // Set loading state on button
   submitBtn.disabled = true;
-  submitBtnText.textContent = 'Syncing to Google Sheets...';
+  submitBtnText.textContent = 'Saving to Google Sheet...';
   btnSpinner.classList.remove('hidden');
 
   try {
@@ -297,7 +338,8 @@ async function handleSubmit() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        text: text,
+        topic,
+        description,
         language: languageSelect.value,
         timestamp: new Date().toISOString()
       })
@@ -306,33 +348,25 @@ async function handleSubmit() {
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.error || 'Failed to submit entry to Google Sheet.');
+      throw new Error(data.error || 'Failed to save story to Google Sheet.');
     }
 
     playTone('success');
 
-    // Show appropriate success message based on integration mode
-    const modeBadge = data.mode === 'service_account' 
-      ? 'Google Sheets API (Live Sync)' 
-      : data.mode === 'webhook' 
-        ? 'Apps Script Webhook (Live Sync)' 
-        : 'Demo Mode (Session Log)';
-
     showToast(
-      'Entry Recorded Successfully!',
-      `${data.message} [${modeBadge}]`,
+      'Story Saved Successfully!',
+      data.message || 'Row appended to Google Sheet.',
       'success'
     );
 
-    // Add entry to UI activity log
     if (data.entry) {
-      addEntryToFeed(data.entry);
+      addStoryToFeed(data.entry);
     }
 
-    // Reset textarea for next speech entry
-    transcriptionInput.value = '';
-    finalTranscriptBeforeStart = '';
-    updateCounters();
+    // Reset inputs
+    topicInput.value = '';
+    descInput.value = '';
+    updateFieldStates();
 
   } catch (error) {
     console.error('Submission error:', error);
@@ -342,37 +376,40 @@ async function handleSubmit() {
       'error'
     );
   } finally {
-    submitBtnText.textContent = 'Submit to Google Sheet';
+    submitBtnText.textContent = 'Save Story to Google Sheet';
     btnSpinner.classList.add('hidden');
-    // Button state re-evaluated by updateCounters
-    updateCounters();
+    updateFieldStates();
   }
 }
 
 /**
- * Add submitted row to the activity feed
+ * Add story card to session feed
  */
-function addEntryToFeed(entry) {
-  if (emptyState) {
-    emptyState.classList.add('hidden');
-  }
+function addStoryToFeed(entry) {
+  if (emptyState) emptyState.classList.add('hidden');
 
   const card = document.createElement('div');
-  card.className = 'entry-card';
+  card.className = 'story-card';
 
-  const isDemo = entry.mode === 'demo';
+  const isDemo = entry.mode === 'demo' || entry.mode === 'oauth_needs_auth';
   const badgeClass = isDemo ? 'entry-badge demo' : 'entry-badge synced';
-  const badgeLabel = isDemo ? '🟡 Demo Mode' : '🟢 Google Sheet Synced';
+  const badgeLabel = isDemo ? '🟡 Local Log' : '🟢 Google Sheet Synced';
 
   card.innerHTML = `
-    <div class="entry-header">
-      <span class="entry-time">${escapeHtml(entry.timestamp)}</span>
+    <div class="story-card-header">
+      <div class="story-card-title">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#a5b4fc" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        <span>${escapeHtml(entry.topic || '(Untitled Topic)')}</span>
+      </div>
       <span class="${badgeClass}">${badgeLabel}</span>
     </div>
-    <div class="entry-text">${escapeHtml(entry.text)}</div>
-    <div class="entry-footer">
-      <span class="entry-lang">Language: ${escapeHtml(entry.language || 'en-US')}</span>
-      <button class="entry-copy-btn" title="Copy text to clipboard">
+    <div class="story-card-desc">${escapeHtml(entry.description || '(No description provided)')}</div>
+    <div class="story-card-footer">
+      <span class="story-card-time">${escapeHtml(entry.timestamp)} &bull; ${escapeHtml(entry.language || 'en-US')}</span>
+      <button class="story-copy-btn" title="Copy story to clipboard">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -382,10 +419,10 @@ function addEntryToFeed(entry) {
     </div>
   `;
 
-  // Attach copy button action
-  const copyBtn = card.querySelector('.entry-copy-btn');
+  const copyBtn = card.querySelector('.story-copy-btn');
   copyBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(entry.text).then(() => {
+    const fullText = `Topic: ${entry.topic}\nDescription: ${entry.description}`;
+    navigator.clipboard.writeText(fullText).then(() => {
       copyBtn.innerHTML = '✓ Copied';
       setTimeout(() => {
         copyBtn.innerHTML = `
@@ -398,16 +435,13 @@ function addEntryToFeed(entry) {
     });
   });
 
-  // Prepend new card
   entriesList.insertBefore(card, entriesList.firstChild);
-
-  // Update count badge
-  const currentCount = entriesList.querySelectorAll('.entry-card').length;
+  const currentCount = entriesList.querySelectorAll('.story-card').length;
   historyBadgeCount.textContent = currentCount;
 }
 
 /**
- * Fetch backend status and connection health
+ * Fetch backend status
  */
 async function checkBackendStatus() {
   try {
@@ -416,28 +450,19 @@ async function checkBackendStatus() {
 
     if (data.isConfigured) {
       connectionStatusBtn.className = 'status-badge online';
+      statusBadgeText.textContent = `🟢 Sheet Connected`;
       googleAuthBtn.classList.add('hidden');
       if (data.details && data.details.sheetUrl) {
         openSheetLink.href = data.details.sheetUrl;
-        openSheetLink.classList.remove('hidden');
-      }
-      if (data.integrationType === 'oauth') {
-        statusBadgeText.textContent = `🟢 Sheet Connected (OAuth)`;
-      } else if (data.integrationType === 'service_account') {
-        statusBadgeText.textContent = `🟢 Sheet Connected (API)`;
-      } else {
-        statusBadgeText.textContent = `🟢 Sheet Connected (Webhook)`;
       }
     } else if (data.needsAuth) {
       connectionStatusBtn.className = 'status-badge demo';
-      statusBadgeText.textContent = '🟡 Connect Google Account';
+      statusBadgeText.textContent = '🟡 Authorize Google';
       googleAuthBtn.classList.remove('hidden');
-      openSheetLink.classList.add('hidden');
     } else {
       connectionStatusBtn.className = 'status-badge demo';
-      statusBadgeText.textContent = '🟡 Demo Mode (Setup Guide)';
+      statusBadgeText.textContent = '🟡 Demo Mode';
       googleAuthBtn.classList.add('hidden');
-      openSheetLink.classList.add('hidden');
     }
 
     return data;
@@ -449,7 +474,7 @@ async function checkBackendStatus() {
 }
 
 /**
- * Fetch past entries on load
+ * Fetch past entries
  */
 async function loadHistory() {
   try {
@@ -457,15 +482,13 @@ async function loadHistory() {
     const data = await res.json();
     if (data.entries && data.entries.length > 0) {
       if (emptyState) emptyState.classList.add('hidden');
-      data.entries.forEach(entry => addEntryToFeed(entry));
+      data.entries.forEach(entry => addStoryToFeed(entry));
     }
-  } catch (e) {
-    // Silent fallback
-  }
+  } catch (e) {}
 }
 
 /**
- * Toast Notification Helper
+ * Toast Helper
  */
 let toastTimeout = null;
 function showToast(title, subtitle, type = 'success') {
@@ -512,39 +535,42 @@ function escapeHtml(str) {
    Event Listeners
    ========================================================================== */
 
-// Microphone Click
-micBtn.addEventListener('click', toggleRecording);
+// Microphone Click Events
+topicMicBtn.addEventListener('click', () => toggleFieldRecording('topic'));
+descMicBtn.addEventListener('click', () => toggleFieldRecording('desc'));
 
-// Clear Button Click
-clearBtn.addEventListener('click', handleClear);
+// Clear Events
+clearTopicBtn.addEventListener('click', clearTopic);
+clearDescBtn.addEventListener('click', clearDesc);
 
-// Submit Button Click
-submitBtn.addEventListener('click', handleSubmit);
+// Input Typing Events
+topicInput.addEventListener('input', updateFieldStates);
+descInput.addEventListener('input', updateFieldStates);
 
-// Input Typing / Pasting
-transcriptionInput.addEventListener('input', updateCounters);
-
-// Keyboard Shortcut: Ctrl+Enter or Cmd+Enter to submit
-transcriptionInput.addEventListener('keydown', (e) => {
+// Keyboard Shortcuts: Ctrl+Enter to submit
+window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
     if (!submitBtn.disabled) {
-      handleSubmit();
+      handleSubmitStory();
     }
   }
 });
 
-// Language change handler
+// Language Select change
 languageSelect.addEventListener('change', () => {
   if (recognition) {
     recognition.lang = languageSelect.value;
-    if (isRecording) {
-      // Restart with new language dialect
+    if (activeRecordingField) {
+      const current = activeRecordingField;
       stopRecording();
-      setTimeout(startRecording, 150);
+      setTimeout(() => startFieldRecording(current), 150);
     }
   }
 });
+
+// Submit Button
+submitBtn.addEventListener('click', handleSubmitStory);
 
 // Toast Close
 toastCloseBtn.addEventListener('click', () => {
@@ -553,60 +579,16 @@ toastCloseBtn.addEventListener('click', () => {
 
 // Clear History
 clearHistoryBtn.addEventListener('click', () => {
-  const cards = entriesList.querySelectorAll('.entry-card');
+  const cards = entriesList.querySelectorAll('.story-card');
   cards.forEach(card => card.remove());
   if (emptyState) emptyState.classList.remove('hidden');
   historyBadgeCount.textContent = '0';
 });
 
-// Guide Modal Tabs
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-
-    btn.classList.add('active');
-    const targetId = btn.getAttribute('data-tab');
-    const targetPane = document.getElementById(targetId);
-    if (targetPane) targetPane.classList.add('active');
-  });
-});
-
-// Guide Modal open / close
-function openModal() {
-  guideModal.classList.remove('hidden');
-}
-
-function closeModal() {
-  guideModal.classList.add('hidden');
-}
-
-instructionsBtn.addEventListener('click', openModal);
-connectionStatusBtn.addEventListener('click', openModal);
-closeModalBtn.addEventListener('click', closeModal);
-modalDoneBtn.addEventListener('click', closeModal);
-
-modalTestConnectionBtn.addEventListener('click', async () => {
-  modalTestConnectionBtn.textContent = 'Testing...';
-  const data = await checkBackendStatus();
-  modalTestConnectionBtn.textContent = 'Test Connection';
-  if (data && data.isConfigured) {
-    alert(`Connected successfully! Method: ${data.integrationType.toUpperCase()}`);
-  } else {
-    alert('Currently in Demo Mode. Provide either GOOGLE_SHEET_WEBHOOK_URL or Google Service Account keys in .env or Render dashboard to connect.');
-  }
-});
-
-guideModal.addEventListener('click', (e) => {
-  if (e.target === guideModal) {
-    closeModal();
-  }
-});
-
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
   initSpeechRecognition();
-  updateCounters();
+  updateFieldStates();
   checkBackendStatus();
   loadHistory();
 
@@ -614,17 +596,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('auth_success') === 'true') {
     playTone('success');
-    const sheetId = urlParams.get('sheetId');
     showToast(
-      '🎉 Google Sheet Connected & Created!',
-      sheetId ? `Your Google Sheet was created in your Drive. Entries will sync live!` : 'Google account connected successfully!',
+      '🎉 Google Sheet Authorized!',
+      'Connected to target spreadsheet. Stories will sync directly into the sheet!',
       'success'
     );
-    // Clean up query string in browser bar
     window.history.replaceState({}, document.title, window.location.pathname);
   } else if (urlParams.get('auth_error')) {
     showToast(
-      'Google Authorization Failed',
+      'Google Authorization Notice',
       decodeURIComponent(urlParams.get('auth_error')),
       'error'
     );
