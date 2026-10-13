@@ -13,6 +13,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID || '1s9CqUGiXMsGFncCJJ7d002kWkCETk09rP1rkwSy2I9Y';
+const SHEET_NAME = process.env.GOOGLE_SHEET_NAME || 'Sheet1';
 
 app.use(cors());
 app.use(express.json());
@@ -22,175 +24,92 @@ app.use(express.static(path.join(__dirname, 'public')));
 const sessionStories = [];
 
 /**
- * Helper to update or append variables in .env file
+ * Auto-detect and load any Service Account JSON file in the project folder
  */
-function updateEnvFile(key, value) {
+function getServiceAccountCredentials() {
+  // 1. Check environment variables
+  const envEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_CLIENT_EMAIL;
+  const envKey = process.env.GOOGLE_PRIVATE_KEY;
+  if (envEmail && envKey) {
+    return {
+      clientEmail: envEmail,
+      privateKey: envKey.replace(/\\n/g, '\n').replace(/^["']|["']$/g, ''),
+      source: 'env'
+    };
+  }
+
+  // 2. Scan project directory for any service account json file
   try {
-    const envPath = path.join(__dirname, '.env');
-    let envContent = '';
-    if (fs.existsSync(envPath)) {
-      envContent = fs.readFileSync(envPath, 'utf8');
+    const files = fs.readdirSync(__dirname);
+    for (const file of files) {
+      if (file.endsWith('.json') && !file.includes('package')) {
+        try {
+          const content = JSON.parse(fs.readFileSync(path.join(__dirname, file), 'utf8'));
+          if (content.type === 'service_account' && content.client_email && content.private_key) {
+            return {
+              clientEmail: content.client_email,
+              privateKey: content.private_key,
+              fileName: file,
+              source: 'file'
+            };
+          }
+        } catch (e) {
+          // ignore parsing error for non-service account files
+        }
+      }
     }
-
-    const regex = new RegExp(`^${key}=.*$`, 'm');
-    if (regex.test(envContent)) {
-      envContent = envContent.replace(regex, `${key}=${value}`);
-    } else {
-      envContent += `\n${key}=${value}`;
-    }
-
-    fs.writeFileSync(envPath, envContent, 'utf8');
-    process.env[key] = value;
-    console.log(`[ENV] Successfully persisted ${key} to .env`);
   } catch (err) {
-    console.error(`[ENV] Failed to update .env:`, err);
+    console.warn('Error reading directory for service account:', err);
   }
+
+  return null;
 }
 
 /**
- * Determine Google Sheet integration method
+ * Ensure header row exists on target Google Sheet
  */
-function getIntegrationConfig() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-  const sheetId = process.env.GOOGLE_SHEET_ID;
-  const sheetName = process.env.GOOGLE_SHEET_NAME || 'Sheet1';
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/api/auth/gmail/callback`;
-
-  // 1. OAuth 2.0 with active refresh token and Sheet ID
-  if (clientId && clientSecret && refreshToken && sheetId) {
-    return {
-      type: 'oauth',
-      clientId,
-      clientSecret,
-      refreshToken,
-      sheetId,
-      sheetName,
-      redirectUri
-    };
-  }
-
-  // 2. OAuth configured with client credentials but pending user sign-in
-  if (clientId && clientSecret && (!refreshToken || !sheetId)) {
-    return {
-      type: 'oauth_needs_auth',
-      clientId,
-      clientSecret,
-      sheetId,
-      redirectUri
-    };
-  }
-
-  // 3. Service Account fallback
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-  if (clientEmail && privateKey && sheetId) {
-    return {
-      type: 'service_account',
-      clientEmail,
-      privateKey: privateKey.replace(/\\n/g, '\n').replace(/^["']|["']$/g, ''),
-      sheetId,
-      sheetName
-    };
-  }
-
-  // 4. Webhook fallback
-  const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL;
-  if (webhookUrl) {
-    return {
-      type: 'webhook',
-      webhookUrl
-    };
-  }
-
-  // 5. Demo fallback
-  return {
-    type: 'demo'
-  };
-}
-
-/**
- * Helper to get OAuth2 Client
- */
-function getOAuth2Client() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/api/auth/gmail/callback`;
-
-  if (!clientId || !clientSecret) {
-    throw new Error('Google Client ID and Client Secret are not configured in .env');
-  }
-
-  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
-}
-
-/**
- * Ensure header row exists on sheet
- */
-async function ensureHeaders(sheets, spreadsheetId, sheetName) {
+async function ensureHeaders(sheets) {
   try {
     const existing = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `${sheetName}!A1:D1`
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_NAME}!A1:D1`
     });
 
     if (!existing.data.values || existing.data.values.length === 0) {
       await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `${sheetName}!A1:D1`,
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEET_NAME}!A1:D1`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
-          values: [['Timestamp', 'Topic', 'Short Description', 'Language']]
+          values: [['Timestamp', 'Story Topic', 'Short Description', 'Language']]
         }
       });
+      console.log(`[SHEETS] Headers written to ${SHEET_NAME}!A1:D1`);
     }
   } catch (err) {
-    console.warn('Header check warning:', err.message);
+    // If sheet isn't shared yet or headers already exist
+    console.warn('[SHEETS] Header check note:', err.message);
   }
 }
 
 /**
- * Append row via OAuth 2.0
+ * Append row to Google Sheet via Service Account
  */
-async function appendViaOAuth(config, rowData) {
-  const oauth2Client = getOAuth2Client();
-  oauth2Client.setCredentials({ refresh_token: config.refreshToken });
-
-  const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
-
-  // Ensure header row exists if sheet is fresh
-  await ensureHeaders(sheets, config.sheetId, config.sheetName);
-
-  const response = await sheets.spreadsheets.values.append({
-    spreadsheetId: config.sheetId,
-    range: `${config.sheetName}!A:D`,
-    valueInputOption: 'USER_ENTERED',
-    insertDataOption: 'INSERT_ROWS',
-    requestBody: {
-      values: [rowData]
-    }
-  });
-
-  return response.data;
-}
-
-/**
- * Append row via Service Account API
- */
-async function appendViaServiceAccount(config, rowData) {
+async function appendStoryToSheet(saCreds, rowData) {
   const auth = new google.auth.JWT({
-    email: config.clientEmail,
-    key: config.privateKey,
+    email: saCreds.clientEmail,
+    key: saCreds.privateKey,
     scopes: ['https://www.googleapis.com/auth/spreadsheets']
   });
 
   const sheets = google.sheets({ version: 'v4', auth });
-  await ensureHeaders(sheets, config.sheetId, config.sheetName);
+
+  // Try checking headers
+  await ensureHeaders(sheets);
 
   const response = await sheets.spreadsheets.values.append({
-    spreadsheetId: config.sheetId,
-    range: `${config.sheetName}!A:D`,
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAME}!A:D`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
@@ -202,110 +121,17 @@ async function appendViaServiceAccount(config, rowData) {
 }
 
 /**
- * Append row via Webhook
- */
-async function appendViaWebhook(webhookUrl, data) {
-  const response = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Google Apps Script responded with ${response.status}: ${errorText}`);
-  }
-
-  return await response.json().catch(() => ({ status: 'success' }));
-}
-
-/**
- * =========================================================================
- * OAuth Routes
- * =========================================================================
- */
-
-// Step 1: Redirect user to Google Authorization consent screen
-app.get('/api/auth/google', (req, res) => {
-  try {
-    const oauth2Client = getOAuth2Client();
-    const scopes = [
-      'https://www.googleapis.com/auth/spreadsheets',
-      'https://www.googleapis.com/auth/drive.file'
-    ];
-
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent',
-      scope: scopes
-    });
-
-    res.redirect(authUrl);
-  } catch (error) {
-    console.error('Error generating Google auth URL:', error);
-    res.status(500).send(`Failed to start Google Auth: ${error.message}`);
-  }
-});
-
-// Step 2: Google redirects back to this callback
-app.get('/api/auth/gmail/callback', async (req, res) => {
-  const { code, error } = req.query;
-
-  if (error) {
-    return res.redirect(`/?auth_error=${encodeURIComponent(error)}`);
-  }
-
-  if (!code) {
-    return res.redirect('/?auth_error=No_code_received');
-  }
-
-  try {
-    const oauth2Client = getOAuth2Client();
-    const { tokens } = await oauth2Client.getToken(code);
-    oauth2Client.setCredentials(tokens);
-
-    if (tokens.refresh_token) {
-      updateEnvFile('GOOGLE_REFRESH_TOKEN', tokens.refresh_token);
-    }
-
-    const sheetId = process.env.GOOGLE_SHEET_ID;
-
-    // Verify sheet access and prepare headers
-    try {
-      const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
-      await ensureHeaders(sheets, sheetId, process.env.GOOGLE_SHEET_NAME || 'Sheet1');
-      console.log(`Successfully verified and prepared target Sheet ID: ${sheetId}`);
-    } catch (sheetErr) {
-      console.warn('Sheet access notice on auth:', sheetErr.message);
-    }
-
-    res.redirect(`/?auth_success=true&sheetId=${sheetId}`);
-  } catch (err) {
-    console.error('OAuth Callback Error:', err);
-    res.redirect(`/?auth_error=${encodeURIComponent(err.message || 'OAuth failed')}`);
-  }
-});
-
-/**
- * GET /api/status - Check backend status and credentials setup
+ * GET /api/status - Check backend status and service account status
  */
 app.get('/api/status', (req, res) => {
-  const config = getIntegrationConfig();
-  const sheetId = process.env.GOOGLE_SHEET_ID;
+  const sa = getServiceAccountCredentials();
 
   res.json({
     status: 'online',
-    integrationType: config.type,
-    isConfigured: config.type === 'oauth' || config.type === 'service_account' || config.type === 'webhook',
-    needsAuth: config.type === 'oauth_needs_auth',
-    details: {
-      hasClientId: Boolean(process.env.GOOGLE_CLIENT_ID),
-      hasRefreshToken: Boolean(process.env.GOOGLE_REFRESH_TOKEN),
-      hasSheetId: Boolean(sheetId),
-      sheetId: sheetId || null,
-      sheetUrl: sheetId ? `https://docs.google.com/spreadsheets/d/${sheetId}/edit` : null,
-      sheetName: process.env.GOOGLE_SHEET_NAME || 'Sheet1'
-    },
+    hasServiceAccount: Boolean(sa),
+    serviceAccountEmail: sa ? sa.clientEmail : null,
+    spreadsheetId: SPREADSHEET_ID,
+    sheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=0`,
     totalEntriesLogged: sessionStories.length
   });
 });
@@ -342,29 +168,31 @@ app.post('/api/submit', async (req, res) => {
     });
 
     const rowData = [formattedTimestamp, cleanTopic, cleanDesc, language];
-    const config = getIntegrationConfig();
+    const sa = getServiceAccountCredentials();
 
+    let syncedToSheet = false;
     let message = '';
 
-    if (config.type === 'oauth') {
-      await appendViaOAuth(config, rowData);
-      message = 'Story successfully saved to your Google Sheet!';
-    } else if (config.type === 'service_account') {
-      await appendViaServiceAccount(config, rowData);
-      message = 'Story saved directly to Google Sheet via Service Account!';
-    } else if (config.type === 'webhook') {
-      await appendViaWebhook(config.webhookUrl, {
-        timestamp: formattedTimestamp,
-        topic: cleanTopic,
-        description: cleanDesc,
-        language
-      });
-      message = 'Story sent to Google Sheet via Webhook!';
+    if (sa) {
+      try {
+        await appendStoryToSheet(sa, rowData);
+        syncedToSheet = true;
+        message = 'Story successfully written directly to your Google Sheet!';
+      } catch (sheetError) {
+        console.error('Google Sheets API Error:', sheetError);
+        // If the sheet hasn't been shared with the service account yet
+        if (sheetError.code === 403 || sheetError.message?.includes('permission')) {
+          throw new Error(
+            `Permission denied: Please open your Google Sheet, click 'Share' (top right), and add this Service Account email as Editor: ${sa.clientEmail}`
+          );
+        } else if (sheetError.code === 404) {
+          throw new Error(`Google Sheet not found. Please verify spreadsheet ID: ${SPREADSHEET_ID}`);
+        } else {
+          throw sheetError;
+        }
+      }
     } else {
-      // Demo / needs auth mode
-      message = config.type === 'oauth_needs_auth'
-        ? 'Please click "Authorize Google Sheet" above once to link with your Google account.'
-        : 'Saved in Demo Mode. Connect your Google account to sync live rows.';
+      message = 'Story logged locally. Please provide your Service Account JSON file to sync live rows directly into your Google Sheet.';
     }
 
     const entry = {
@@ -373,8 +201,8 @@ app.post('/api/submit', async (req, res) => {
       description: cleanDesc,
       timestamp: formattedTimestamp,
       language,
-      mode: config.type,
-      sheetUrl: process.env.GOOGLE_SHEET_ID ? `https://docs.google.com/spreadsheets/d/${process.env.GOOGLE_SHEET_ID}/edit` : null,
+      syncedToSheet,
+      sheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=0`,
       success: true
     };
 
@@ -383,8 +211,7 @@ app.post('/api/submit', async (req, res) => {
     return res.json({
       success: true,
       message,
-      mode: config.type,
-      sheetUrl: entry.sheetUrl,
+      syncedToSheet,
       entry
     });
   } catch (error) {
@@ -402,6 +229,12 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
+  const sa = getServiceAccountCredentials();
   console.log(`🚀 Voice to Google Sheet app running at http://localhost:${PORT}`);
-  console.log(`📡 Integration mode: ${getIntegrationConfig().type.toUpperCase()}`);
+  console.log(`📊 Target Sheet: https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=0`);
+  if (sa) {
+    console.log(`🛡️ Service Account configured: ${sa.clientEmail}`);
+  } else {
+    console.log(`⚠️ Waiting for Service Account JSON or credentials`);
+  }
 });

@@ -4,7 +4,7 @@
  * - Two separate voice recognition fields: Topic & Short Description
  * - Independent microphone buttons on the right side of both inputs
  * - Real-time interim preview & auto-capitalization
- * - Synced directly to Google Sheet: 1s9CqUGiXMsGFncCJJ7d002kWkCETk09rP1rkwSy2I9Y
+ * - Zero logins required: Direct Service Account backend sync to Google Sheet
  * - Pleasant synthesized Web Audio chimes
  */
 
@@ -40,9 +40,8 @@ const emptyState = document.getElementById('emptyState');
 const historyBadgeCount = document.getElementById('historyBadgeCount');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
-const connectionStatusBtn = document.getElementById('connectionStatusBtn');
+const connectionStatusBadge = document.getElementById('connectionStatusBadge');
 const statusBadgeText = document.getElementById('statusBadgeText');
-const googleAuthBtn = document.getElementById('googleAuthBtn');
 const openSheetLink = document.getElementById('openSheetLink');
 
 // State
@@ -202,10 +201,8 @@ function toggleFieldRecording(fieldName) {
   }
 
   if (activeRecordingField === fieldName) {
-    // Stop recording
     stopRecording();
   } else {
-    // If recording on the other field, switch
     if (activeRecordingField) {
       stopRecording();
       setTimeout(() => startFieldRecording(fieldName), 150);
@@ -286,7 +283,7 @@ function updateFieldStates() {
     clearDescBtn.classList.add('hidden');
   }
 
-  // Enable submit button if either field is present
+  // Enable submit button if either field has content
   if (topicVal.length > 0 || descVal.trim().length > 0) {
     submitBtn.disabled = false;
   } else {
@@ -371,7 +368,7 @@ async function handleSubmitStory() {
   } catch (error) {
     console.error('Submission error:', error);
     showToast(
-      'Sync Failed',
+      'Sync Notice',
       error.message || 'Could not connect to Google Sheet backend.',
       'error'
     );
@@ -391,9 +388,8 @@ function addStoryToFeed(entry) {
   const card = document.createElement('div');
   card.className = 'story-card';
 
-  const isDemo = entry.mode === 'demo' || entry.mode === 'oauth_needs_auth';
-  const badgeClass = isDemo ? 'entry-badge demo' : 'entry-badge synced';
-  const badgeLabel = isDemo ? '🟡 Local Log' : '🟢 Google Sheet Synced';
+  const badgeClass = entry.syncedToSheet ? 'entry-badge synced' : 'entry-badge demo';
+  const badgeLabel = entry.syncedToSheet ? '🟢 Google Sheet Synced' : '🟡 Local Log';
 
   card.innerHTML = `
     <div class="story-card-header">
@@ -448,26 +444,21 @@ async function checkBackendStatus() {
     const res = await fetch('/api/status');
     const data = await res.json();
 
-    if (data.isConfigured) {
-      connectionStatusBtn.className = 'status-badge online';
-      statusBadgeText.textContent = `🟢 Sheet Connected`;
-      googleAuthBtn.classList.add('hidden');
-      if (data.details && data.details.sheetUrl) {
-        openSheetLink.href = data.details.sheetUrl;
-      }
-    } else if (data.needsAuth) {
-      connectionStatusBtn.className = 'status-badge demo';
-      statusBadgeText.textContent = '🟡 Authorize Google';
-      googleAuthBtn.classList.remove('hidden');
+    if (data.hasServiceAccount) {
+      connectionStatusBadge.className = 'status-badge online';
+      statusBadgeText.textContent = `🟢 Sheet Ready`;
     } else {
-      connectionStatusBtn.className = 'status-badge demo';
-      statusBadgeText.textContent = '🟡 Demo Mode';
-      googleAuthBtn.classList.add('hidden');
+      connectionStatusBadge.className = 'status-badge demo';
+      statusBadgeText.textContent = `🟡 Add Service Account`;
+    }
+
+    if (data.sheetUrl) {
+      openSheetLink.href = data.sheetUrl;
     }
 
     return data;
   } catch (err) {
-    connectionStatusBtn.className = 'status-badge';
+    connectionStatusBadge.className = 'status-badge demo';
     statusBadgeText.textContent = '⚪ Server Offline';
     return null;
   }
@@ -591,23 +582,4 @@ document.addEventListener('DOMContentLoaded', () => {
   updateFieldStates();
   checkBackendStatus();
   loadHistory();
-
-  // Handle OAuth redirect return
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('auth_success') === 'true') {
-    playTone('success');
-    showToast(
-      '🎉 Google Sheet Authorized!',
-      'Connected to target spreadsheet. Stories will sync directly into the sheet!',
-      'success'
-    );
-    window.history.replaceState({}, document.title, window.location.pathname);
-  } else if (urlParams.get('auth_error')) {
-    showToast(
-      'Google Authorization Notice',
-      decodeURIComponent(urlParams.get('auth_error')),
-      'error'
-    );
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
 });
