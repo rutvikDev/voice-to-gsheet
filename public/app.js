@@ -32,6 +32,8 @@ const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 const connectionStatusBtn = document.getElementById('connectionStatusBtn');
 const statusBadgeText = document.getElementById('statusBadgeText');
 const instructionsBtn = document.getElementById('instructionsBtn');
+const googleAuthBtn = document.getElementById('googleAuthBtn');
+const openSheetLink = document.getElementById('openSheetLink');
 const guideModal = document.getElementById('guideModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const modalDoneBtn = document.getElementById('modalDoneBtn');
@@ -414,14 +416,28 @@ async function checkBackendStatus() {
 
     if (data.isConfigured) {
       connectionStatusBtn.className = 'status-badge online';
-      if (data.integrationType === 'service_account') {
+      googleAuthBtn.classList.add('hidden');
+      if (data.details && data.details.sheetUrl) {
+        openSheetLink.href = data.details.sheetUrl;
+        openSheetLink.classList.remove('hidden');
+      }
+      if (data.integrationType === 'oauth') {
+        statusBadgeText.textContent = `🟢 Sheet Connected (OAuth)`;
+      } else if (data.integrationType === 'service_account') {
         statusBadgeText.textContent = `🟢 Sheet Connected (API)`;
       } else {
         statusBadgeText.textContent = `🟢 Sheet Connected (Webhook)`;
       }
+    } else if (data.needsAuth) {
+      connectionStatusBtn.className = 'status-badge demo';
+      statusBadgeText.textContent = '🟡 Connect Google Account';
+      googleAuthBtn.classList.remove('hidden');
+      openSheetLink.classList.add('hidden');
     } else {
       connectionStatusBtn.className = 'status-badge demo';
       statusBadgeText.textContent = '🟡 Demo Mode (Setup Guide)';
+      googleAuthBtn.classList.add('hidden');
+      openSheetLink.classList.add('hidden');
     }
 
     return data;
@@ -593,4 +609,25 @@ document.addEventListener('DOMContentLoaded', () => {
   updateCounters();
   checkBackendStatus();
   loadHistory();
+
+  // Handle OAuth redirect return
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('auth_success') === 'true') {
+    playTone('success');
+    const sheetId = urlParams.get('sheetId');
+    showToast(
+      '🎉 Google Sheet Connected & Created!',
+      sheetId ? `Your Google Sheet was created in your Drive. Entries will sync live!` : 'Google account connected successfully!',
+      'success'
+    );
+    // Clean up query string in browser bar
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } else if (urlParams.get('auth_error')) {
+    showToast(
+      'Google Authorization Failed',
+      decodeURIComponent(urlParams.get('auth_error')),
+      'error'
+    );
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
 });
