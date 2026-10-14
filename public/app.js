@@ -169,7 +169,7 @@ function startFieldRecording(fieldName) {
 
       if (micSoundLevelBadge) {
         micSoundLevelBadge.textContent = 'Mic Active';
-        micSoundLevelBadge.style.color = '#38bdf8';
+        micSoundLevelBadge.style.color = '#e11d48';
       }
     };
 
@@ -179,7 +179,7 @@ function startFieldRecording(fieldName) {
       }
       if (micSoundLevelBadge) {
         micSoundLevelBadge.textContent = 'Voice Detected ✓';
-        micSoundLevelBadge.style.color = '#34d399';
+        micSoundLevelBadge.style.color = '#059669';
       }
     };
 
@@ -225,7 +225,7 @@ function startFieldRecording(fieldName) {
 
       if (micSoundLevelBadge) {
         micSoundLevelBadge.textContent = 'Transcribing ✓';
-        micSoundLevelBadge.style.color = '#34d399';
+        micSoundLevelBadge.style.color = '#059669';
       }
 
       updateFieldStates();
@@ -528,6 +528,13 @@ toastCloseBtn.addEventListener('click', () => {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+  const todayStamp = document.getElementById('todayStamp');
+  if (todayStamp) {
+    try {
+      const now = new Date();
+      todayStamp.textContent = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {}
+  }
   updateFieldStates();
   console.log('[Storyteller Studio] Ready. Speech Engine listening configured for en-IN.');
 });

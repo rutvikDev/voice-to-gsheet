@@ -3,208 +3,390 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Storyteller Studio | Voice to Google Sheets</title>
-  <meta name="description" content="Storyteller Voice Studio: Speak your story topic and description with real-time speech recognition and sync directly to Google Sheets.">
+  <title>Storyteller Journal | Voice to Google Sheets</title>
+  <meta name="description" content="Storyteller Voice Journal: Dictate your story topic and description with real-time speech recognition inked directly to Google Sheets.">
+  
+  <!-- Refined Pen & Paper Typography: Lora (Manuscript Serif), Caveat (Handwritten accents), Plus Jakarta Sans (UI) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="style.css">
   <script src="annyang.min.js"></script>
 </head>
-<body>
-  <!-- Ambient background glow elements -->
-  <div class="ambient-glow glow-top"></div>
-  <div class="ambient-glow glow-bottom"></div>
+<body class="pen-paper-theme">
+  <!-- Desk background canvas with warm wood lighting & fine grain -->
+  <div class="desk-canvas">
+    <div class="desk-wood-vignette"></div>
 
-  <div class="app-layout">
-    <!-- Clean Brand Header -->
-    <header class="app-header">
-      <div class="brand">
-        <div class="logo-box">
-          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-            <path d="M12 6l-2 4h4l-2 4" stroke="#a5b4fc" stroke-width="1.8" />
-          </svg>
-        </div>
-        <div>
-          <h1 class="brand-title">Storyteller Studio</h1>
-          <p class="brand-tagline">Speak Topic &amp; Description &bull; Sync directly to Google Sheets</p>
-        </div>
-      </div>
-    </header>
-
-    <!-- Main Workspace Card (Storyteller Form) -->
-    <main class="main-card">
-      <div class="card-inner">
-
-        <!-- Live Listening & Voice Activity Indicator -->
-        <div id="activeFieldPill" class="listening-pill hidden">
-          <span class="pulsing-red-dot"></span>
-          <span id="listeningFieldText" class="listening-text">Listening... Speak now</span>
-          <div class="sound-wave" id="soundWaveVisualizer">
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
-            <span class="wave-bar"></span>
+    <div class="app-layout">
+      <!-- Desk Top Bar / Navigation -->
+      <header class="journal-header">
+        <div class="brand-stationery">
+          <!-- Fountain Pen Nib & Ink Emblem SVG -->
+          <div class="pen-emblem-badge" title="Storyteller's Quill">
+            <svg class="pen-nib-svg" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 3L25 14C25 14 24 18 21.5 20.5L18 32L14.5 20.5C12 18 11 14 11 14L18 3Z" fill="url(#nibGradient)" stroke="#2b2319" stroke-width="1.8" stroke-linejoin="round"/>
+              <line x1="18" y1="14" x2="18" y2="26" stroke="#fdfbf7" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="18" cy="14" r="1.6" fill="#fdfbf7"/>
+              <path d="M8 29C13 26 23 26 28 29" stroke="#b45309" stroke-width="2" stroke-linecap="round"/>
+              <defs>
+                <linearGradient id="nibGradient" x1="11" y1="3" x2="25" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#2d3748"/>
+                  <stop offset="0.65" stop-color="#1a202c"/>
+                  <stop offset="1" stop-color="#0f172a"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
-          <span id="micSoundLevelBadge" class="sound-level-badge">Mic Active</span>
+          <div class="brand-text">
+            <h1 class="journal-title">Storyteller's Journal</h1>
+            <p class="journal-subtitle">
+              <span class="pen-icon-inline">✍️</span> Dictate with Voice &bull; Inked directly to Google Sheets
+            </p>
+          </div>
         </div>
 
-        <form id="storyForm" onsubmit="return false;" class="story-form">
-          <!-- FIELD 1: Story Topic -->
-          <div class="form-field-group">
-            <div class="field-label-row">
-              <label for="topicInput" class="form-label">
-                <span class="label-badge">1</span>
-                <span>Story Topic</span>
-                <span class="required-star">*</span>
-              </label>
-              <span class="field-hint">Click mic on the right to speak</span>
-            </div>
+        <!-- Right Side: Journal Date Stamp & Cloud Status -->
+        <div class="header-stamps">
+          <div class="journal-stamp" title="Current Ledger Date">
+            <span class="stamp-label">ENTRY DATE</span>
+            <span class="stamp-value" id="todayStamp">Oct 14, 2026</span>
+          </div>
+          <div class="cloud-sync-pill" title="Live Google Cloud Service Account Connection">
+            <span class="sync-dot"></span>
+            <span>Cloud Sync Active</span>
+          </div>
+        </div>
+      </header>
 
-            <div class="input-wrapper field-single-line" id="topicWrapper">
-              <input 
-                type="text" 
-                id="topicInput" 
-                placeholder="e.g. The Legend of the Whispering Peaks"
-                autocomplete="off"
-                spellcheck="true"
-              />
-              <div class="input-actions-right">
-                <button 
-                  type="button" 
-                  id="clearTopicBtn" 
-                  class="action-btn clear-btn hidden" 
-                  title="Clear topic"
-                  aria-label="Clear topic"
-                >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-                <button 
-                  type="button" 
-                  id="topicMicBtn" 
-                  class="action-btn mic-btn" 
-                  title="Speak Story Topic (Microphone)"
-                  aria-label="Toggle Microphone for Topic"
-                >
-                  <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="22" />
-                  </svg>
-                  <div class="mic-ring-wave"></div>
-                </button>
+      <!-- Main Workspace: The Storyteller's Legal Pad & Desk Accessories -->
+      <div class="notepad-layout-wrapper">
+        
+        <!-- Left: The Storyteller's Legal Pad -->
+        <div class="notepad-container">
+          <!-- Brass Bulldog Binder Clip on top of pad -->
+          <div class="brass-binder-clip" aria-hidden="true">
+            <div class="clip-loop"></div>
+            <div class="clip-body">
+              <div class="clip-screws">
+                <span class="screw"></span>
+                <span class="screw"></span>
               </div>
+              <span class="clip-brand">STORYTELLER &bull; NO. 1</span>
             </div>
           </div>
 
-          <!-- FIELD 2: Short Description -->
-          <div class="form-field-group">
-            <div class="field-label-row">
-              <label for="descInput" class="form-label">
-                <span class="label-badge">2</span>
-                <span>Short Description</span>
-                <span class="required-star">*</span>
-              </label>
-              <span class="field-hint">Click mic on the right to speak</span>
-            </div>
-
-            <div class="input-wrapper field-multi-line" id="descWrapper">
-              <textarea 
-                id="descInput" 
-                placeholder="Speak or type a short description, key characters, and central plot..."
-                rows="5"
-                spellcheck="true"
-              ></textarea>
-              <div class="input-actions-right">
-                <button 
-                  type="button" 
-                  id="clearDescBtn" 
-                  class="action-btn clear-btn hidden" 
-                  title="Clear description"
-                  aria-label="Clear description"
-                >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-                <button 
-                  type="button" 
-                  id="descMicBtn" 
-                  class="action-btn mic-btn" 
-                  title="Speak Short Description (Microphone)"
-                  aria-label="Toggle Microphone for Description"
-                >
-                  <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="22" />
-                  </svg>
-                  <div class="mic-ring-wave"></div>
-                </button>
+          <!-- Main Notepad Sheet -->
+          <main class="notepad-sheet" id="notepadPaper">
+            <!-- Leather / Binding Strip at the top of the notepad -->
+            <div class="notepad-binding-bar">
+              <div class="binding-stitches"></div>
+              <div class="perforated-tear-line">
+                <span class="tear-label">--- TEAR ALONG PERFORATION ---</span>
               </div>
             </div>
 
-            <!-- Meta row under Description -->
-            <div class="input-meta">
-              <div class="meta-left">
-                <span id="descCharCount">0 characters</span>
-                <span class="meta-dot">•</span>
-                <span id="descWordCount">0 words</span>
-              </div>
-              <div class="meta-right">
-                <span class="accuracy-badge">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            <!-- Red Notebook Margin Line (running vertically) -->
+            <div class="notepad-red-margin" aria-hidden="true"></div>
+
+            <!-- Sheet Content Inner -->
+            <div class="notepad-content">
+              
+              <!-- Live Dictation Banner (Appears when recording) -->
+              <div id="activeFieldPill" class="dictation-tape hidden" role="status" aria-live="polite">
+                <div class="tape-edge left"></div>
+                <div class="dictation-tape-body">
+                  <span class="pulsing-record-light" title="Microphone Recording"></span>
+                  
+                  <!-- Custom SVG Studio Mic in Ribbon -->
+                  <svg class="ribbon-mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="2" width="6" height="11" rx="3" fill="#be123c" fill-opacity="0.15" stroke="#be123c"/>
+                    <path d="M5 10v1a7 7 0 0 0 14 0v-1" stroke="#be123c"/>
+                    <line x1="12" y1="18" x2="12" y2="22" stroke="#be123c"/>
+                    <line x1="8" y1="22" x2="16" y2="22" stroke="#be123c"/>
                   </svg>
-                  Live Real-Time Voice Typing
-                </span>
+
+                  <div class="dictation-text-wrapper">
+                    <span id="listeningFieldText" class="listening-text">Listening... Speak now</span>
+                  </div>
+
+                  <!-- Animated Sound Wave Visualizer Bars -->
+                  <div class="sound-wave" id="soundWaveVisualizer" aria-hidden="true">
+                    <span class="wave-bar"></span>
+                    <span class="wave-bar"></span>
+                    <span class="wave-bar"></span>
+                    <span class="wave-bar"></span>
+                    <span class="wave-bar"></span>
+                  </div>
+
+                  <span id="micSoundLevelBadge" class="sound-level-badge">Mic Active</span>
+                </div>
+                <div class="tape-edge right"></div>
               </div>
+
+              <!-- The Story Form -->
+              <form id="storyForm" onsubmit="return false;" class="story-form">
+                
+                <!-- FIELD 1: Story Topic -->
+                <section class="notepad-row topic-row">
+                  <div class="row-header">
+                    <label for="topicInput" class="ruled-label">
+                      <span class="handwritten-number">1.</span>
+                      <span class="label-heading">Story Topic</span>
+                      <span class="nib-symbol" title="Title Field">✒️</span>
+                      <span class="required-asterisk">*</span>
+                    </label>
+                    <span class="field-hint-handwritten">Click mic or type topic</span>
+                  </div>
+
+                  <div class="paper-input-container field-single-line" id="topicWrapper">
+                    <input 
+                      type="text" 
+                      id="topicInput" 
+                      class="paper-text-input"
+                      placeholder="e.g. The Legend of the Whispering Peaks"
+                      autocomplete="off"
+                      spellcheck="true"
+                      aria-required="true"
+                    />
+                    
+                    <div class="input-actions-right">
+                      <!-- Eraser / Clear Button -->
+                      <button 
+                        type="button" 
+                        id="clearTopicBtn" 
+                        class="paper-action-btn clear-btn hidden" 
+                        title="Erase topic"
+                        aria-label="Clear story topic"
+                      >
+                        <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+
+                      <!-- Custom SVG Microphone Button -->
+                      <button 
+                        type="button" 
+                        id="topicMicBtn" 
+                        class="paper-action-btn mic-btn" 
+                        title="Click to Speak Topic (Microphone)"
+                        aria-label="Toggle Microphone for Story Topic"
+                      >
+                        <!-- Custom Highly Detailed Microphone SVG -->
+                        <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <!-- Sound wave arcs on sides -->
+                          <path class="mic-sound-wave left-wave" d="M2.5 10a9.5 9.5 0 0 1 0-4" stroke-width="1.8" opacity="0.6"/>
+                          <path class="mic-sound-wave right-wave" d="M21.5 10a9.5 9.5 0 0 0 0-4" stroke-width="1.8" opacity="0.6"/>
+                          <!-- Capsule Body -->
+                          <rect class="mic-capsule" x="8.5" y="2.5" width="7" height="11" rx="3.5" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.9"/>
+                          <!-- Internal Grille Slots -->
+                          <line x1="8.5" y1="6" x2="15.5" y2="6" stroke="currentColor" stroke-width="1.3" opacity="0.7"/>
+                          <line x1="8.5" y1="9" x2="15.5" y2="9" stroke="currentColor" stroke-width="1.3" opacity="0.7"/>
+                          <!-- Cradle -->
+                          <path class="mic-cradle" d="M5 10.5v.5a7 7 0 0 0 14 0v-.5" stroke="currentColor" stroke-width="2"/>
+                          <!-- Stand & Base -->
+                          <line x1="12" y1="18" x2="12" y2="22" stroke="currentColor" stroke-width="2"/>
+                          <line x1="7.5" y1="22" x2="16.5" y2="22" stroke="currentColor" stroke-width="2.2"/>
+                        </svg>
+                        <!-- Pulse rings for active recording -->
+                        <div class="mic-active-ripples" aria-hidden="true">
+                          <span class="ripple-ring r1"></span>
+                          <span class="ripple-ring r2"></span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- FIELD 2: Short Description (Ruled Paper Canvas) -->
+                <section class="notepad-row desc-row">
+                  <div class="row-header">
+                    <label for="descInput" class="ruled-label">
+                      <span class="handwritten-number">2.</span>
+                      <span class="label-heading">Story Manuscript / Description</span>
+                      <span class="nib-symbol" title="Narrative Field">📜</span>
+                      <span class="required-asterisk">*</span>
+                    </label>
+                    <span class="field-hint-handwritten">Speak story freely into the notebook</span>
+                  </div>
+
+                  <div class="paper-input-container field-multi-line" id="descWrapper">
+                    <!-- Ruled lines notebook textarea -->
+                    <textarea 
+                      id="descInput" 
+                      class="paper-ruled-textarea"
+                      placeholder="Speak or write the narrative here... Once upon a time, in a misty valley between mountain peaks..."
+                      rows="6"
+                      spellcheck="true"
+                      aria-required="true"
+                    ></textarea>
+
+                    <div class="input-actions-right desc-actions">
+                      <!-- Eraser / Clear Button -->
+                      <button 
+                        type="button" 
+                        id="clearDescBtn" 
+                        class="paper-action-btn clear-btn hidden" 
+                        title="Erase description"
+                        aria-label="Clear manuscript description"
+                      >
+                        <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+
+                      <!-- Custom SVG Microphone Button -->
+                      <button 
+                        type="button" 
+                        id="descMicBtn" 
+                        class="paper-action-btn mic-btn" 
+                        title="Click to Speak Description (Microphone)"
+                        aria-label="Toggle Microphone for Story Description"
+                      >
+                        <!-- Custom Highly Detailed Microphone SVG -->
+                        <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <!-- Sound wave arcs on sides -->
+                          <path class="mic-sound-wave left-wave" d="M2.5 10a9.5 9.5 0 0 1 0-4" stroke-width="1.8" opacity="0.6"/>
+                          <path class="mic-sound-wave right-wave" d="M21.5 10a9.5 9.5 0 0 0 0-4" stroke-width="1.8" opacity="0.6"/>
+                          <!-- Capsule Body -->
+                          <rect class="mic-capsule" x="8.5" y="2.5" width="7" height="11" rx="3.5" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.9"/>
+                          <!-- Internal Grille Slots -->
+                          <line x1="8.5" y1="6" x2="15.5" y2="6" stroke="currentColor" stroke-width="1.3" opacity="0.7"/>
+                          <line x1="8.5" y1="9" x2="15.5" y2="9" stroke="currentColor" stroke-width="1.3" opacity="0.7"/>
+                          <!-- Cradle -->
+                          <path class="mic-cradle" d="M5 10.5v.5a7 7 0 0 0 14 0v-.5" stroke="currentColor" stroke-width="2"/>
+                          <!-- Stand & Base -->
+                          <line x1="12" y1="18" x2="12" y2="22" stroke="currentColor" stroke-width="2"/>
+                          <line x1="7.5" y1="22" x2="16.5" y2="22" stroke="currentColor" stroke-width="2.2"/>
+                        </svg>
+                        <!-- Pulse rings for active recording -->
+                        <div class="mic-active-ripples" aria-hidden="true">
+                          <span class="ripple-ring r1"></span>
+                          <span class="ripple-ring r2"></span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Manuscript Ledger Meta Bar -->
+                  <div class="manuscript-meta-row">
+                    <div class="meta-stats">
+                      <span class="quill-count-icon">🖋️</span>
+                      <span id="descWordCount" class="stat-pill">0 words</span>
+                      <span class="meta-separator">&bull;</span>
+                      <span id="descCharCount" class="stat-pill">0 characters</span>
+                    </div>
+                    <div class="meta-guarantee">
+                      <span class="ink-badge">
+                        <svg class="check-quill" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+                          <path d="M20 6L9 17l-5-5"/>
+                        </svg>
+                        Live Real-Time Voice Inking
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- SUBMIT / WAX SEAL BUTTON -->
+                <div class="notepad-seal-section">
+                  <button type="button" id="submitBtn" class="wax-seal-btn" disabled>
+                    <!-- Wax Seal Emblem SVG -->
+                    <div class="seal-icon-wrapper">
+                      <svg class="wax-seal-svg" viewBox="0 0 28 28" fill="none" stroke="currentColor">
+                        <!-- Google Sheets grid representation styled like a wax seal -->
+                        <circle cx="14" cy="14" r="12" stroke-width="1.8" stroke-dasharray="2 2" opacity="0.6"/>
+                        <circle cx="14" cy="14" r="10" stroke-width="1.6"/>
+                        <rect x="8" y="8" width="12" height="12" rx="1.5" stroke-width="1.4"/>
+                        <line x1="8" y1="12" x2="20" y2="12" stroke-width="1.2"/>
+                        <line x1="8" y1="16" x2="20" y2="16" stroke-width="1.2"/>
+                        <line x1="13" y1="8" x2="13" y2="20" stroke-width="1.2"/>
+                      </svg>
+                    </div>
+
+                    <span id="submitBtnText" class="seal-btn-label">Seal &amp; Sync to Google Sheets</span>
+                    
+                    <svg class="feather-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                      <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+
+                    <span class="btn-spinner hidden" id="btnSpinner" aria-hidden="true"></span>
+                  </button>
+                  
+                  <div class="paper-shortcut-guide">
+                    <span class="shortcut-pen">⚡</span> Quick Seal: Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to save immediately
+                  </div>
+                </div>
+
+              </form>
+
+              <!-- Result / Telegram Dispatch Banner -->
+              <div id="toastMessage" class="toast-banner hidden" role="alert" aria-live="assertive">
+                <div class="toast-wax-seal" id="toastIcon"></div>
+                <div class="toast-body">
+                  <div id="toastTitle" class="toast-title">Story Inked Successfully!</div>
+                  <div id="toastSubtitle" class="toast-subtitle">Row appended to Google Sheet.</div>
+                </div>
+                <button id="toastCloseBtn" class="toast-close" aria-label="Close notification">&times;</button>
+              </div>
+
+            </div> <!-- /.notepad-content -->
+
+            <!-- Paper page bottom folded corner effect -->
+            <div class="paper-fold-corner" aria-hidden="true"></div>
+          </main> <!-- /.notepad-sheet -->
+        </div> <!-- /.notepad-container -->
+
+        <!-- Right Side: Desk Accessories (Sticky Note & Archival Seal) -->
+        <aside class="desk-accessories" aria-label="Writer's Desk Tools">
+          <!-- Sticky Note pinned with tape -->
+          <div class="sticky-note">
+            <div class="tape-strip"></div>
+            <div class="sticky-header">
+              <span class="sticky-pin">📌</span>
+              <span class="sticky-title">Voice Notes</span>
+            </div>
+            <ul class="sticky-tips">
+              <li>
+                <strong>Click Mic</strong> to begin voice typing.
+              </li>
+              <li>
+                <strong>Speak naturally</strong> — interim words stream live to paper.
+              </li>
+              <li>
+                Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to seal and sync to Sheets.
+              </li>
+            </ul>
+            <div class="sticky-footer-quote">~ The Pen is in your Voice ~</div>
+          </div>
+
+          <!-- Archival Ledger Card -->
+          <div class="desk-card-companion">
+            <div class="companion-header">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#b45309" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+              <span>Archival Ledger</span>
+            </div>
+            <p class="companion-desc">
+              Every story dictated here is immediately formatted and appended as a new row in your connected Google Sheet ledger.
+            </p>
+            <div class="companion-pill">
+              <span class="pill-dot"></span>
+              <span>Zero Audio Lock &bull; Live Streams</span>
             </div>
           </div>
+        </aside>
 
-          <!-- Submit Button -->
-          <div class="submit-action-wrapper">
-            <button type="button" id="submitBtn" class="submit-btn" disabled>
-              <span class="btn-content">
-                <svg class="sheet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <path d="M3 9h18" />
-                  <path d="M3 15h18" />
-                  <path d="M9 3v18" />
-                </svg>
-                <span id="submitBtnText">Save Story to Google Sheet</span>
-                <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                  <polyline points="12 5 19 12 12 19"></polyline>
-                </svg>
-              </span>
-              <span class="btn-spinner hidden" id="btnSpinner"></span>
-            </button>
-            <div class="shortcut-hint">Tip: Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to save immediately</div>
-          </div>
-        </form>
+      </div> <!-- /.notepad-layout-wrapper -->
 
-        <!-- Result / Notification Banner -->
-        <div id="toastMessage" class="toast-banner hidden" role="alert">
-          <div class="toast-icon" id="toastIcon"></div>
-          <div class="toast-body">
-            <div id="toastTitle" class="toast-title"></div>
-            <div id="toastSubtitle" class="toast-subtitle"></div>
-          </div>
-          <button id="toastCloseBtn" class="toast-close" aria-label="Close notification">&times;</button>
-        </div>
-
-      </div>
-    </main>
-  </div>
+      <!-- Footer Archival Note -->
+      <footer class="journal-footer">
+        <p>Storyteller Studio &bull; Crafting stories with voice &bull; Synchronized via Google Cloud API</p>
+      </footer>
+    </div> <!-- /.app-layout -->
+  </div> <!-- /.desk-canvas -->
 
   <script src="app.js"></script>
 </body>
