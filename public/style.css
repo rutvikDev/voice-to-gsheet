@@ -30,17 +30,34 @@
   --sticky-border: #facc15;
   --sticky-text: #713f12;
 
-  /* Voice & Recording Signals */
-  --record-red: #e11d48;
-  --record-glow: rgba(225, 29, 72, 0.3);
-  --record-tape-bg: #fff1f2;
-  --record-tape-border: #fda4af;
+  /* Voice & Recording Signals: Professional Studio Emerald */
+  --record-active: #047857;
+  --record-active-dot: #10b981;
+  --record-active-glow: rgba(16, 185, 129, 0.4);
+  --record-active-bg: rgba(16, 185, 129, 0.1);
+  --record-active-border: rgba(16, 185, 129, 0.35);
+  --record-tape-bg: #ecfdf5;
+  --record-tape-border: #a7f3d0;
 
   /* Typography */
   --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
   --font-handwritten: 'Caveat', 'Kalam', cursive;
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Fluid Responsive Scaling Tokens */
+  --canvas-padding-y: clamp(14px, 3.5vw, 30px);
+  --canvas-padding-x: clamp(8px, 2.5vw, 20px);
+  --app-gap: clamp(14px, 2.5vw, 26px);
+  --title-size: clamp(1.22rem, 3.6vw, 1.85rem);
+  --subtitle-size: clamp(0.76rem, 2vw, 0.9rem);
+  --label-heading-size: clamp(0.96rem, 2.4vw, 1.15rem);
+  --number-size: clamp(1.18rem, 3vw, 1.55rem);
+  --input-font-size: clamp(1rem, 2.2vw, 1.12rem); /* >= 16px to prevent iOS auto-zoom */
+  --line-height-textarea: 34px;
+  --notepad-left-pad: 84px;
+  --margin-red-left: 64px;
+  --btn-font-size: clamp(0.9rem, 2.4vw, 1.02rem);
 
   /* Shadows for Realistic Paper Elevation */
   --paper-shadow: 
@@ -59,7 +76,13 @@
    Base & Reset
    ========================================================================== */
 
-* {
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -71,8 +94,10 @@ body.pen-paper-theme {
   background: var(--desk-gradient);
   color: var(--ink-primary);
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   overflow-x: hidden;
+  width: 100%;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
@@ -81,8 +106,11 @@ body.pen-paper-theme {
 .desk-canvas {
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
-  padding: 30px 16px 60px;
+  padding: var(--canvas-padding-y) var(--canvas-padding-x) clamp(20px, 4vw, 50px);
+  display: flex;
+  flex-direction: column;
 }
 
 .desk-wood-vignette {
@@ -99,11 +127,13 @@ body.pen-paper-theme {
 .app-layout {
   position: relative;
   z-index: 1;
-  max-width: 1060px;
+  width: 100%;
+  max-width: 1180px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: var(--app-gap);
+  flex: 1;
 }
 
 /* ==========================================================================
@@ -114,20 +144,22 @@ body.pen-paper-theme {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: clamp(10px, 2.5vw, 20px);
   flex-wrap: wrap;
-  padding: 4px 8px;
+  padding: 2px 4px;
+  width: 100%;
 }
 
 .brand-stationery {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: clamp(10px, 2.2vw, 16px);
+  min-width: 0;
 }
 
 .pen-emblem-badge {
-  width: 52px;
-  height: 52px;
+  width: clamp(40px, 7vw, 52px);
+  height: clamp(40px, 7vw, 52px);
   background: linear-gradient(135deg, #fdfbf7 0%, #ede6d8 100%);
   border: 2px solid #d4c8b6;
   border-radius: 12px;
@@ -136,6 +168,7 @@ body.pen-paper-theme {
   justify-content: center;
   box-shadow: 0 4px 10px rgba(70, 50, 30, 0.12), inset 0 1px 0 #ffffff;
   transition: transform var(--transition-smooth);
+  flex-shrink: 0;
 }
 
 .pen-emblem-badge:hover {
@@ -143,59 +176,74 @@ body.pen-paper-theme {
 }
 
 .pen-nib-svg {
-  width: 32px;
-  height: 32px;
+  width: clamp(24px, 4.8vw, 32px);
+  height: clamp(24px, 4.8vw, 32px);
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
 }
 
 .brand-text {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .journal-title {
   font-family: var(--font-serif);
-  font-size: 1.85rem;
+  font-size: var(--title-size);
   font-weight: 700;
   color: var(--ink-primary);
   letter-spacing: -0.015em;
   line-height: 1.2;
 }
 
+.brand-accent {
+  color: var(--ink-navy);
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 .journal-subtitle {
-  font-size: 0.9rem;
+  font-size: var(--subtitle-size);
   color: var(--ink-secondary);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-weight: 500;
+  margin-top: 2px;
 }
 
 .pen-icon-inline {
-  font-size: 1rem;
+  font-size: clamp(0.85rem, 1.8vw, 1rem);
 }
 
 /* Header Stamps & Pills */
 .header-stamps {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: clamp(8px, 1.5vw, 12px);
+  flex-shrink: 0;
 }
 
 .journal-stamp {
   background: #fbf7ef;
   border: 1.5px dashed #b8a892;
-  padding: 6px 14px;
+  padding: clamp(4px, 1vw, 6px) clamp(8px, 1.8vw, 14px);
   border-radius: 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
   box-shadow: 0 2px 6px rgba(60, 40, 20, 0.05);
   transform: rotate(-1deg);
+  transition: transform var(--transition-smooth);
+}
+
+.journal-stamp:hover {
+  transform: rotate(0deg) scale(1.02);
 }
 
 .stamp-label {
-  font-size: 0.65rem;
+  font-size: clamp(0.58rem, 1.2vw, 0.65rem);
   font-weight: 700;
   letter-spacing: 0.08em;
   color: #8c765c;
@@ -204,9 +252,10 @@ body.pen-paper-theme {
 
 .stamp-value {
   font-family: var(--font-serif);
-  font-size: 0.88rem;
+  font-size: clamp(0.78rem, 1.8vw, 0.88rem);
   font-weight: 600;
   color: var(--ink-navy);
+  white-space: nowrap;
 }
 
 .cloud-sync-pill {
@@ -258,7 +307,7 @@ body.pen-paper-theme {
 /* Brass Bulldog Binder Clip on Top */
 .brass-binder-clip {
   position: absolute;
-  top: -20px;
+  top: -18px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
@@ -267,12 +316,14 @@ body.pen-paper-theme {
   align-items: center;
   filter: drop-shadow(var(--clip-shadow));
   pointer-events: none;
+  max-width: 90%;
+  transition: transform var(--transition-smooth), top var(--transition-smooth);
 }
 
 .clip-loop {
-  width: 44px;
-  height: 22px;
-  border: 4px solid var(--brass-gold);
+  width: clamp(34px, 5.5vw, 44px);
+  height: clamp(17px, 2.8vw, 22px);
+  border: clamp(3px, 0.45vw, 4px) solid var(--brass-gold);
   border-bottom: none;
   border-top-left-radius: 22px;
   border-top-right-radius: 22px;
@@ -284,16 +335,18 @@ body.pen-paper-theme {
   background: linear-gradient(180deg, #dfbc4a 0%, #b88f24 50%, #876510 100%);
   border: 1.5px solid #75550c;
   border-radius: 4px;
-  padding: 4px 18px 5px;
+  padding: clamp(3px, 0.6vw, 4px) clamp(10px, 2.2vw, 18px) clamp(4px, 0.6vw, 5px);
   color: #fff9e6;
-  font-size: 0.62rem;
+  font-size: clamp(0.52rem, 1.2vw, 0.62rem);
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: clamp(0.05em, 0.2vw, 0.1em);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
   align-items: center;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .clip-screws {
@@ -312,6 +365,9 @@ body.pen-paper-theme {
 
 .clip-brand {
   font-family: var(--font-sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -319,12 +375,16 @@ body.pen-paper-theme {
    ========================================================================== */
 
 .desk-accessories {
-  width: 230px;
+  width: 240px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
   padding-top: 14px;
+  position: sticky;
+  top: 20px;
+  align-self: flex-start;
+  z-index: 5;
 }
 
 /* Yellow Sticky Note */
@@ -339,6 +399,67 @@ body.pen-paper-theme {
   box-shadow: 0 6px 18px rgba(70, 50, 20, 0.12), 0 2px 4px rgba(70, 50, 20, 0.08);
   transform: rotate(1.5deg);
   transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+/* Jump to Section Sticky Navigation */
+.sticky-jump-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.sticky-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(234, 179, 8, 0.6);
+  border-radius: 6px;
+  color: #78350f;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+  box-shadow: 0 1px 2px rgba(113, 63, 18, 0.06);
+}
+
+.sticky-nav-btn:hover {
+  background: #ffffff;
+  border-color: #b45309;
+  color: #451a03;
+  transform: translateX(3px);
+  box-shadow: 0 2px 6px rgba(113, 63, 18, 0.12);
+}
+
+.sticky-nav-btn.active {
+  background: #78350f;
+  border-color: #78350f;
+  color: #fef08a;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(120, 53, 15, 0.28);
+  transform: translateX(3px);
+}
+
+.sticky-btn-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.sticky-btn-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sticky-divider-line {
+  margin: 12px 0 10px;
+  border-top: 1px dashed rgba(180, 83, 9, 0.28);
 }
 
 .sticky-note:hover {
@@ -484,14 +605,17 @@ body.pen-paper-theme {
   border-radius: 8px;
   box-shadow: var(--paper-shadow);
   padding: 0;
-  min-height: 580px;
+  min-height: clamp(480px, 60vh, 580px);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 /* Binding Bar at Top */
 .notepad-binding-bar {
   background: linear-gradient(180deg, #333a42 0%, #202429 100%);
-  height: 38px;
+  height: clamp(32px, 4.5vw, 38px);
   position: relative;
   border-bottom: 2px solid #14171a;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 3px 6px rgba(0, 0, 0, 0.2);
@@ -499,7 +623,7 @@ body.pen-paper-theme {
 
 .binding-stitches {
   position: absolute;
-  top: 10px;
+  top: clamp(8px, 1.2vw, 10px);
   left: 0;
   right: 0;
   height: 2px;
@@ -520,39 +644,44 @@ body.pen-paper-theme {
   background: transparent;
   border-bottom: 1.5px dashed #d1c5b4;
   z-index: 2;
+  overflow: hidden;
 }
 
 .tear-label {
-  font-size: 0.58rem;
+  font-size: clamp(0.48rem, 1.2vw, 0.58rem);
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: clamp(0.08em, 0.3vw, 0.18em);
   color: #ab9b85;
   background: var(--paper-cream);
-  padding: 0 10px;
+  padding: 0 clamp(6px, 1.5vw, 10px);
   font-family: var(--font-sans);
+  white-space: nowrap;
 }
 
 /* Red Notebook Margin (classic left margin rule) */
 .notepad-red-margin {
   position: absolute;
-  top: 38px;
+  top: clamp(32px, 4.5vw, 38px);
   bottom: 0;
-  left: 64px;
+  left: var(--margin-red-left);
   width: 2px;
   background-color: var(--paper-margin-red);
   box-shadow: 1px 0 0 rgba(255, 255, 255, 0.4);
   pointer-events: none;
   z-index: 1;
+  transition: left var(--transition-smooth);
 }
 
 /* Inner Sheet Padding */
 .notepad-content {
   position: relative;
   z-index: 2;
-  padding: 36px 36px 42px 84px;
+  padding: clamp(18px, 3.2vw, 36px) clamp(10px, 2.5vw, 36px) clamp(16px, 2.5vw, 32px) var(--notepad-left-pad);
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: clamp(14px, 2.2vw, 24px);
+  transition: padding var(--transition-smooth);
+  width: 100%;
 }
 
 /* Bottom Folded Corner */
@@ -701,48 +830,213 @@ body.pen-paper-theme {
 }
 
 /* ==========================================================================
+   Internal Form Scroll Container (Hidden Scrollbar)
+   ========================================================================== */
+
+.form-scroll-container {
+  max-height: clamp(360px, calc(100vh - 280px), 640px);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+  padding-right: clamp(4px, 1vw, 8px);
+  padding-bottom: 8px;
+}
+
+.form-scroll-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* ==========================================================================
+   Chapter Blocks & Embossed Stationery Badges
+   ========================================================================== */
+
+.chapter-block {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 22px 20px 24px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(220, 211, 197, 0.6);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(60, 40, 20, 0.02);
+  transition: border-color var(--transition-smooth);
+}
+
+.chapter-block:hover {
+  border-color: #d4c8b6;
+}
+
+.chapter-header-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 12px;
+  border-bottom: 1.5px dashed rgba(200, 185, 165, 0.5);
+}
+
+.chapter-roman {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--ink-accent);
+  text-transform: uppercase;
+}
+
+.chapter-title {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--ink-primary);
+  letter-spacing: -0.01em;
+}
+
+.chapter-sub {
+  font-family: var(--font-handwritten);
+  font-size: 1.15rem;
+  color: var(--ink-secondary);
+}
+
+/* ==========================================================================
    Story Form & Notepad Rows
    ========================================================================== */
 
 .story-form {
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: clamp(16px, 2.6vw, 24px);
 }
 
 .notepad-row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: clamp(6px, 1.2vw, 8px);
 }
 
 .row-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 6px;
+  position: relative;
+  min-width: 0;
+}
+
+/* Minimal Corner Recording & Moving Mic Indicator (Studio Emerald Live Accent) */
+.corner-mic-badge {
+  display: none;
+  align-items: center;
+  gap: clamp(4px, 1vw, 6px);
+  padding: 2px clamp(7px, 1.4vw, 10px);
+  border-radius: 14px;
+  background: var(--record-active-bg);
+  border: 1px solid var(--record-active-border);
+  color: var(--record-active);
+  font-family: var(--font-sans);
+  font-size: clamp(0.62rem, 1.6vw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: translateY(-2px) scale(0.94);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.corner-mic-badge.active-recording {
+  display: inline-flex;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  box-shadow: 0 2px 8px var(--record-active-glow);
+}
+
+.corner-mic-badge .live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--record-active-dot);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: cornerDotPulse 1.4s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes cornerDotPulse {
+  0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.corner-mic-badge .moving-mic-icon {
+  width: 14px;
+  height: 14px;
+  stroke: var(--record-active);
+  flex-shrink: 0;
+  animation: micMotion 1.5s ease-in-out infinite;
+}
+
+@keyframes micMotion {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-2px) rotate(-5deg); }
+  75% { transform: translateY(1.5px) rotate(5deg); }
+}
+
+.corner-mic-badge .wave-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  height: 12px;
+}
+
+.corner-mic-badge .wave-bars .bar {
+  display: inline-block;
+  width: 2.5px;
+  background-color: var(--record-active-dot);
+  border-radius: 2px;
+  animation: waveBarBounce 0.9s ease-in-out infinite alternate;
+}
+
+.corner-mic-badge .wave-bars .bar.b1 { height: 6px; animation-delay: 0.1s; }
+.corner-mic-badge .wave-bars .bar.b2 { height: 11px; animation-delay: 0.3s; }
+.corner-mic-badge .wave-bars .bar.b3 { height: 7px; animation-delay: 0.5s; }
+
+@keyframes waveBarBounce {
+  0% { transform: scaleY(0.4); opacity: 0.6; }
+  100% { transform: scaleY(1.3); opacity: 1; }
+}
+
+.corner-mic-badge .rec-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .ruled-label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: clamp(5px, 1.5vw, 8px);
   cursor: pointer;
   user-select: none;
+  min-width: 0;
 }
 
 .handwritten-number {
   font-family: var(--font-handwritten);
-  font-size: 1.55rem;
+  font-size: var(--number-size);
   font-weight: 700;
   color: var(--ink-accent);
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .label-heading {
   font-family: var(--font-serif);
-  font-size: 1.22rem;
+  font-size: var(--label-heading-size);
   font-weight: 700;
   color: var(--ink-primary);
   letter-spacing: -0.01em;
@@ -778,6 +1072,8 @@ body.pen-paper-theme {
   align-items: center;
   transition: all var(--transition-smooth);
   box-shadow: inset 0 1px 3px rgba(60, 40, 20, 0.04), 0 1px 2px rgba(60, 40, 20, 0.04);
+  width: 100%;
+  min-width: 0;
 }
 
 .paper-input-container:hover {
@@ -794,11 +1090,11 @@ body.pen-paper-theme {
 
 /* Recording State: Vivid Voice Attention */
 .paper-input-container.recording {
-  border-color: var(--record-red) !important;
+  border-color: var(--record-active) !important;
   box-shadow: 
-    0 0 0 3px rgba(225, 29, 72, 0.18),
-    inset 0 1px 4px rgba(225, 29, 72, 0.08) !important;
-  background: #fffcfc;
+    0 0 0 3px rgba(16, 185, 129, 0.22),
+    inset 0 1px 4px rgba(16, 185, 129, 0.08) !important;
+  background: #fbfdfc;
 }
 
 /* Single Line Input (Topic) */
@@ -807,18 +1103,20 @@ body.pen-paper-theme {
   background: transparent;
   border: none;
   outline: none;
-  padding: 14px 18px;
+  padding: clamp(10px, 2vw, 13px) clamp(12px, 2.5vw, 18px);
   font-family: var(--font-serif);
-  font-size: 1.15rem;
+  font-size: var(--input-font-size);
   color: var(--ink-primary);
   line-height: 1.4;
+  min-width: 0;
+  width: 100%;
 }
 
 .paper-text-input::placeholder {
   font-family: var(--font-serif);
   font-style: italic;
   color: var(--ink-muted);
-  font-size: 1.05rem;
+  font-size: 0.95em;
 }
 
 /* Multi-Line Input: Ruled Notebook Lines (Description) */
@@ -831,46 +1129,66 @@ body.pen-paper-theme {
 
 .paper-ruled-textarea {
   width: 100%;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
-  padding: 14px 90px 14px 18px; /* 90px leaves plenty of space for mic and clear button */
+  padding: clamp(10px, 2vw, 12px) clamp(44px, 7vw, 56px) clamp(10px, 2vw, 12px) clamp(12px, 2.5vw, 18px);
   font-family: var(--font-serif);
-  font-size: 1.12rem;
+  font-size: var(--input-font-size);
   color: var(--ink-primary);
-  line-height: 34px; /* Matches ruled line repeat */
-  resize: vertical;
-  min-height: 190px;
+  line-height: var(--line-height-textarea); /* Matches ruled line repeat */
+  resize: none;
+  overflow: hidden;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  min-height: clamp(100px, 15vh, 130px);
 
   /* Classic Notebook Ruled Lines */
   background-image: repeating-linear-gradient(
     transparent,
-    transparent 33px,
-    var(--paper-line) 33px,
-    var(--paper-line) 34px
+    transparent calc(var(--line-height-textarea) - 1px),
+    var(--paper-line) calc(var(--line-height-textarea) - 1px),
+    var(--paper-line) var(--line-height-textarea)
   );
   background-attachment: local;
+}
+
+/* Never show scrollbars when input/textarea is empty or showing placeholder */
+.paper-ruled-textarea:placeholder-shown,
+.paper-ruled-textarea:empty {
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+}
+
+.paper-ruled-textarea:not(:placeholder-shown) {
+  overflow-y: auto;
+}
+
+.paper-text-input {
+  overflow: hidden !important;
 }
 
 .paper-ruled-textarea::placeholder {
   font-family: var(--font-serif);
   font-style: italic;
   color: var(--ink-muted);
-  line-height: 34px;
+  line-height: var(--line-height-textarea);
+  font-size: 0.95em;
 }
 
 /* Input Action Buttons (Right-side clear and mic) */
 .input-actions-right {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-right: 12px;
+  gap: clamp(6px, 1.5vw, 10px);
+  padding-right: clamp(8px, 1.8vw, 12px);
 }
 
 .desc-actions {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: clamp(8px, 1.6vw, 12px);
+  right: clamp(8px, 1.6vw, 12px);
   padding-right: 0;
   z-index: 5;
 }
@@ -890,8 +1208,8 @@ body.pen-paper-theme {
 
 /* Eraser / Clear Button */
 .clear-btn {
-  width: 36px;
-  height: 36px;
+  width: clamp(30px, 5.5vw, 36px);
+  height: clamp(30px, 5.5vw, 36px);
   background: #faf5ee;
   border: 1px solid #dfd4c5;
   color: #9ca3af;
@@ -910,8 +1228,8 @@ body.pen-paper-theme {
 }
 
 .eraser-svg {
-  width: 17px;
-  height: 17px;
+  width: clamp(14px, 2.8vw, 17px);
+  height: clamp(14px, 2.8vw, 17px);
 }
 
 /* ==========================================================================
@@ -1070,34 +1388,53 @@ body.pen-paper-theme {
 }
 
 /* ==========================================================================
-   Submit / Wax Seal Action Button
+   Submit & Google Sheet Sticky Bottom Actions Bar
    ========================================================================== */
 
-.notepad-seal-section {
+.notepad-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  background: linear-gradient(180deg, rgba(255, 253, 250, 0.78) 0%, rgba(255, 253, 250, 0.98) 28%, #fffdfa 100%);
+  border-top: 1.5px dashed #ded4c3;
+  padding: clamp(10px, 2.2vw, 16px) clamp(4px, 1vw, 8px) clamp(6px, 1.2vw, 8px);
+  margin-top: 6px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
+  gap: clamp(8px, 1.6vw, 12px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.action-buttons-group {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(8px, 1.8vw, 14px);
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .wax-seal-btn {
+  flex: 1 1 280px;
   background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%);
   border: 2px solid #3b82f6;
   border-radius: 12px;
-  padding: 16px 36px;
+  padding: clamp(12px, 2.2vw, 15px) clamp(16px, 3.5vw, 28px);
   color: #ffffff;
   font-family: var(--font-sans);
-  font-size: 1.05rem;
+  font-size: var(--btn-font-size);
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: clamp(8px, 1.6vw, 12px);
   cursor: pointer;
   box-shadow: var(--button-shadow);
   transition: all var(--transition-smooth);
   position: relative;
   overflow: hidden;
+  text-decoration: none;
+  min-width: 0;
 }
 
 .wax-seal-btn:hover:not(:disabled) {
@@ -1118,17 +1455,81 @@ body.pen-paper-theme {
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
+  filter: grayscale(0.4);
+}
+
+.open-sheet-btn {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 1.4vw, 10px);
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 2px solid #fbbf24;
+  border-radius: 12px;
+  padding: clamp(12px, 2.2vw, 14px) clamp(14px, 2.8vw, 22px);
+  color: #78350f;
+  font-family: var(--font-sans);
+  font-size: var(--btn-font-size);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(180, 83, 9, 0.14), inset 0 1px 0 #ffffff;
+  transition: all var(--transition-smooth);
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.open-sheet-btn:hover {
+  background: linear-gradient(135deg, #ffffff 0%, #fde68a 100%);
+  border-color: #d97706;
+  color: #451a03;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(180, 83, 9, 0.25);
+}
+
+.open-sheet-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.18);
+}
+
+.gsheet-icon-svg {
+  width: clamp(18px, 3.5vw, 22px);
+  height: clamp(18px, 3.5vw, 22px);
+  flex-shrink: 0;
+}
+
+.sheet-btn-label {
+  letter-spacing: -0.01em;
+}
+
+.external-link-svg {
+  width: clamp(13px, 2.2vw, 15px);
+  height: clamp(13px, 2.2vw, 15px);
+  opacity: 0.75;
+  transition: transform var(--transition-smooth);
+}
+
+.open-sheet-btn:hover .external-link-svg {
+  transform: translate(2px, -2px);
+  opacity: 1;
+}
+
+.open-sheet-btn .gsheet-icon-svg rect {
+  fill: #d97706;
+  stroke: #b45309;
 }
 
 .seal-icon-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .wax-seal-svg {
-  width: 24px;
-  height: 24px;
+  width: clamp(20px, 3.8vw, 24px);
+  height: clamp(20px, 3.8vw, 24px);
   stroke: #93c5fd;
 }
 
@@ -1141,10 +1542,11 @@ body.pen-paper-theme {
 }
 
 .feather-arrow-svg {
-  width: 18px;
-  height: 18px;
+  width: clamp(15px, 2.8vw, 18px);
+  height: clamp(15px, 2.8vw, 18px);
   stroke: #93c5fd;
   transition: transform var(--transition-smooth);
+  flex-shrink: 0;
 }
 
 .wax-seal-btn:hover:not(:disabled) .feather-arrow-svg {
@@ -1159,6 +1561,7 @@ body.pen-paper-theme {
   border-top-color: #ffffff;
   border-radius: 50%;
   animation: spinnerRotate 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 .btn-spinner.hidden {
@@ -1170,20 +1573,22 @@ body.pen-paper-theme {
 }
 
 .paper-shortcut-guide {
-  font-size: 0.82rem;
+  font-size: clamp(0.72rem, 1.8vw, 0.82rem);
   color: var(--ink-secondary);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+  line-height: 1.5;
 }
 
 .paper-shortcut-guide kbd {
   background: #fdfbf7;
   border: 1px solid #d4c8b6;
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: 4px;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(60, 40, 20, 0.08);
 }
@@ -1194,17 +1599,17 @@ body.pen-paper-theme {
 
 .toast-banner {
   position: fixed;
-  bottom: 28px;
-  right: 28px;
+  bottom: clamp(14px, 3vw, 28px);
+  right: clamp(14px, 3vw, 28px);
   background: #ffffff;
   border: 2px solid #10b981;
   border-radius: 10px;
-  padding: 16px 20px;
+  padding: clamp(12px, 2.2vw, 16px) clamp(14px, 2.8vw, 20px);
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
-  gap: 14px;
-  max-width: 440px;
+  gap: clamp(10px, 2vw, 14px);
+  max-width: min(440px, calc(100vw - 28px));
   z-index: 1000;
   animation: toastSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1232,18 +1637,19 @@ body.pen-paper-theme {
 
 .toast-body {
   flex: 1;
+  min-width: 0;
 }
 
 .toast-title {
   font-family: var(--font-serif);
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: clamp(0.92rem, 2.2vw, 1.05rem);
   color: var(--ink-primary);
   line-height: 1.25;
 }
 
 .toast-subtitle {
-  font-size: 0.85rem;
+  font-size: clamp(0.76rem, 1.8vw, 0.85rem);
   color: var(--ink-secondary);
   margin-top: 3px;
   line-height: 1.4;
@@ -1279,10 +1685,16 @@ body.pen-paper-theme {
 }
 
 /* ==========================================================================
-   Responsive Design (Mobile & Tablets)
+   Comprehensive Responsive System (All Screens: Desktop, Tablet, Mobile)
    ========================================================================== */
 
+/* Laptops & Mid Desktops (<= 960px) */
 @media (max-width: 960px) {
+  :root {
+    --notepad-left-pad: 68px;
+    --margin-red-left: 50px;
+  }
+
   .notepad-layout-wrapper {
     flex-direction: column;
   }
@@ -1300,34 +1712,490 @@ body.pen-paper-theme {
   }
 }
 
-@media (max-width: 720px) {
-  .notepad-content {
-    padding: 24px 16px 28px 46px;
+/* Mobile & Tablets Portrait (<= 768px): ZERO Outer Scroll, Fixed Sticky Buttons & Footer */
+@media (max-width: 768px) {
+  :root {
+    --notepad-left-pad: 32px;
+    --margin-red-left: 20px;
+    --canvas-padding-y: 6px;
+    --canvas-padding-x: 6px;
+    --line-height-textarea: 28px;
   }
 
-  .notepad-red-margin {
-    left: 36px;
+  /* 1. Eliminate Outer Main Scroll */
+  html, body {
+    height: 100% !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
+  .desk-canvas {
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    padding: 6px 6px 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+  }
+
+  .app-layout {
+    height: 100% !important;
+    max-height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    overflow: hidden !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+  }
+
+  /* 2. Compact Header */
   .journal-header {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 4px;
+    width: 100%;
+  }
+
+  .brand-stationery {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .pen-emblem-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    flex-shrink: 0;
+  }
+
+  .pen-nib-svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .journal-title {
+    font-size: clamp(1.1rem, 3.8vw, 1.35rem);
+    line-height: 1.15;
   }
 
   .header-stamps {
+    gap: 6px;
+  }
+
+  .journal-stamp {
+    padding: 2px 8px;
+    transform: none !important;
+    border-width: 1px;
+    box-shadow: none;
+  }
+
+  .stamp-label {
+    font-size: 0.52rem;
+  }
+
+  .stamp-value {
+    font-size: 0.74rem;
+  }
+
+  /* 3. Screen-Fitted Legal Pad Canvas */
+  .notepad-layout-wrapper {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     width: 100%;
-    justify-content: space-between;
+  }
+
+  .notepad-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-top: 10px;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+  }
+
+  .brass-binder-clip {
+    transform: translateX(-50%) scale(0.68);
+    top: -12px;
+    z-index: 12;
+  }
+
+  .notepad-sheet {
+    flex: 1;
+    min-height: 0 !important;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 4px 16px rgba(60, 40, 20, 0.08);
+  }
+
+  .notepad-binding-bar {
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .binding-stitches {
+    top: 6px;
+  }
+
+  .notepad-red-margin {
+    top: 22px;
+    bottom: 0;
+    left: var(--margin-red-left);
+  }
+
+  .notepad-content {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 8px 8px 0 var(--notepad-left-pad);
+    gap: 0;
+  }
+
+  /* 4. Internal Scrollable Form (The ONLY scrolling area on mobile!) */
+  .form-scroll-container {
+    flex: 1;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-bottom: 8px;
+    padding-right: 4px;
+  }
+
+  .story-form {
+    gap: 10px;
+  }
+
+  .notepad-row {
+    gap: 4px;
+  }
+
+  .row-header {
+    flex-wrap: nowrap;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .ruled-label {
+    gap: 4px;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .handwritten-number {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .label-heading {
+    font-size: 0.94rem;
+  }
+
+  .nib-symbol {
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  .corner-mic-badge {
+    display: none !important;
+  }
+
+  .corner-mic-badge.active-recording {
+    display: inline-flex !important;
+    padding: 1px 6px;
+    font-size: 0.62rem;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .paper-text-input {
+    padding: 7px 10px;
+    font-size: 1rem; /* iOS Safari minimum 16px */
+    line-height: 1.35;
+  }
+
+  .paper-ruled-textarea {
+    padding: 6px 34px 6px 10px;
+    font-size: 1rem;
+    line-height: 26px;
+    min-height: 72px;
+    resize: none !important;
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+    background-image: repeating-linear-gradient(
+      transparent,
+      transparent 25px,
+      var(--paper-line) 25px,
+      var(--paper-line) 26px
+    );
+  }
+
+  .paper-ruled-textarea:placeholder-shown,
+  .paper-ruled-textarea:empty {
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+  }
+
+  .paper-ruled-textarea:not(:placeholder-shown) {
+    overflow-y: auto !important;
+  }
+
+  .desc-actions {
+    top: 6px;
+    right: 6px;
+  }
+
+  .clear-btn {
+    width: 26px;
+    height: 26px;
+  }
+
+  .eraser-svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .manuscript-meta-row {
+    padding: 1px 2px;
+    font-size: 0.7rem;
+    gap: 4px;
+  }
+
+  /* 5. Sticky Bottom Action Buttons & Footer */
+  .notepad-sticky-actions {
+    flex-shrink: 0;
+    position: relative;
+    bottom: 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: #fffdfa;
+    border-top: 1.5px dashed #ded4c3;
+    box-shadow: 0 -4px 12px rgba(60, 40, 20, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 25;
+  }
+
+  .action-buttons-group {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
   }
 
   .wax-seal-btn {
-    width: 100%;
+    width: 50%;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 7px 8px;
+    font-size: clamp(0.72rem, 2.2vw, 0.82rem);
+    border-radius: 8px;
+    gap: 5px;
+    white-space: nowrap;
     justify-content: center;
+    min-height: 36px;
+    border-width: 1.5px;
+    box-sizing: border-box;
+  }
+
+  .wax-seal-svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  .feather-arrow-svg {
+    display: none;
+  }
+
+  .open-sheet-btn {
+    width: 50%;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 7px 8px;
+    font-size: clamp(0.72rem, 2.2vw, 0.82rem);
+    border-radius: 8px;
+    gap: 5px;
+    white-space: nowrap;
+    justify-content: center;
+    min-height: 36px;
+    border-width: 1.5px;
+    box-sizing: border-box;
+  }
+
+  .gsheet-icon-svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  .external-link-svg {
+    display: none;
+  }
+
+  .seal-btn-label,
+  .sheet-btn-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .paper-shortcut-guide {
+    font-size: 0.68rem;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.2;
+    gap: 4px;
+  }
+
+  .shortcut-desktop {
+    display: none;
+  }
+
+  .journal-footer {
+    padding: 2px 0 0;
+    font-size: 0.68rem;
+    text-align: center;
+    opacity: 0.7;
+    line-height: 1.2;
   }
 
   .toast-banner {
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
     max-width: none;
+    width: auto;
+    padding: 10px 12px;
+  }
+}
+
+/* Compact Mobile Devices (<= 400px, e.g. iPhone SE, Pixel 5) */
+@media (max-width: 400px) {
+  :root {
+    --notepad-left-pad: 24px;
+    --margin-red-left: 15px;
+  }
+
+  .desk-canvas {
+    padding: 4px 4px 0 !important;
+  }
+
+  .pen-emblem-badge {
+    width: 32px;
+    height: 32px;
+  }
+
+  .pen-nib-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .journal-title {
+    font-size: 1.08rem;
+  }
+
+  .action-buttons-group {
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .wax-seal-btn, .open-sheet-btn {
+    width: 50%;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 4px;
+    font-size: 0.7rem;
+    gap: 4px;
+    min-height: 34px;
+  }
+
+  .wax-seal-svg, .gsheet-icon-svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .stamp-label {
+    display: none;
+  }
+}
+
+/* Ultra-Narrow Screens (<= 330px) */
+@media (max-width: 330px) {
+  :root {
+    --notepad-left-pad: 18px;
+    --margin-red-left: 10px;
+  }
+
+  .journal-stamp {
+    padding: 2px 5px;
+  }
+
+  .stamp-value {
+    font-size: 0.7rem;
+  }
+
+  .action-buttons-group {
+    flex-direction: row;
+    gap: 3px;
+  }
+
+  .wax-seal-btn, .open-sheet-btn {
+    width: 50%;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 5px 3px;
+    font-size: 0.65rem;
+    gap: 3px;
+    min-height: 32px;
+  }
+
+  .wax-seal-svg, .gsheet-icon-svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* Mobile Landscape (Short Viewports) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .brass-binder-clip {
+    display: none;
+  }
+
+  .journal-header {
+    padding: 1px 2px;
+  }
+
+  .pen-emblem-badge {
+    width: 28px;
+    height: 28px;
+  }
+
+  .paper-ruled-textarea {
+    min-height: 52px;
   }
 }

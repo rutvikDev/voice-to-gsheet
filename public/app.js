@@ -1,28 +1,96 @@
 /**
  * Storyteller Studio - Client Application
  * Features:
+ * - 7 Core Narrative Case Study Fields (Story, Challenge, Plan, Makeover, Owners)
  * - 100% Reliable Native & Third-Party Speech Engine (ZERO microphone hardware locks)
  * - True Live Character-by-Character Voice Typing (interim + final streaming)
- * - 200% Accuracy with Multi-Dialect Support (en-IN default for Indian English, en-US, hi-IN)
+ * - Click-to-record on each field (exclusive single-field recording)
  * - Smooth auto-restart on pause for long descriptions without drops
  * - Direct Google Cloud Service Account sync to Google Sheet
  * - Instant error diagnostics & audio chime feedback
  */
 
-// DOM Elements
-const topicInput = document.getElementById('topicInput');
-const topicWrapper = document.getElementById('topicWrapper');
-const topicMicBtn = document.getElementById('topicMicBtn');
-const clearTopicBtn = document.getElementById('clearTopicBtn');
+// Dialect configuration (Defaults to en-IN for Indian accent accuracy)
+let selectedDialect = 'en-IN';
 
-const descInput = document.getElementById('descInput');
-const descWrapper = document.getElementById('descWrapper');
-const descMicBtn = document.getElementById('descMicBtn');
-const clearDescBtn = document.getElementById('clearDescBtn');
+// DOM Elements Registry for the 7 Case Study Fields
+const FIELDS = {
+  storyTitle: {
+    id: 'storyTitle',
+    input: document.getElementById('storyTitleInput'),
+    wrapper: document.getElementById('storyTitleWrapper'),
+    clearBtn: document.getElementById('clearStoryTitleBtn'),
+    micBadge: document.getElementById('micBadge_storyTitle'),
+    name: 'Story Title',
+    isMultiLine: false
+  },
+  storySubHeading: {
+    id: 'storySubHeading',
+    input: document.getElementById('storySubHeadingInput'),
+    wrapper: document.getElementById('storySubHeadingWrapper'),
+    clearBtn: document.getElementById('clearStorySubHeadingBtn'),
+    micBadge: document.getElementById('micBadge_storySubHeading'),
+    name: 'Story Sub Heading',
+    isMultiLine: false
+  },
+  storyDescription: {
+    id: 'storyDescription',
+    input: document.getElementById('storyDescInput'),
+    wrapper: document.getElementById('storyDescWrapper'),
+    clearBtn: document.getElementById('clearStoryDescBtn'),
+    micBadge: document.getElementById('micBadge_storyDescription'),
+    charCount: document.getElementById('storyDescCharCount'),
+    wordCount: document.getElementById('storyDescWordCount'),
+    name: 'Story Description',
+    isMultiLine: true
+  },
+  challengeDescription: {
+    id: 'challengeDescription',
+    input: document.getElementById('challengeDescInput'),
+    wrapper: document.getElementById('challengeDescWrapper'),
+    clearBtn: document.getElementById('clearChallengeDescBtn'),
+    micBadge: document.getElementById('micBadge_challengeDescription'),
+    charCount: document.getElementById('challengeDescCharCount'),
+    wordCount: document.getElementById('challengeDescWordCount'),
+    name: 'Challenge Description',
+    isMultiLine: true
+  },
+  planDescription: {
+    id: 'planDescription',
+    input: document.getElementById('planDescInput'),
+    wrapper: document.getElementById('planDescWrapper'),
+    clearBtn: document.getElementById('clearPlanDescBtn'),
+    micBadge: document.getElementById('micBadge_planDescription'),
+    charCount: document.getElementById('planDescCharCount'),
+    wordCount: document.getElementById('planDescWordCount'),
+    name: 'Plan Description',
+    isMultiLine: true
+  },
+  makeoverDescription: {
+    id: 'makeoverDescription',
+    input: document.getElementById('makeoverDescInput'),
+    wrapper: document.getElementById('makeoverDescWrapper'),
+    clearBtn: document.getElementById('clearMakeoverDescBtn'),
+    micBadge: document.getElementById('micBadge_makeoverDescription'),
+    charCount: document.getElementById('makeoverDescCharCount'),
+    wordCount: document.getElementById('makeoverDescWordCount'),
+    name: 'Makeover Description',
+    isMultiLine: true
+  },
+  ownerQuotes: {
+    id: 'ownerQuotes',
+    input: document.getElementById('ownerQuotesInput'),
+    wrapper: document.getElementById('ownerQuotesWrapper'),
+    clearBtn: document.getElementById('clearOwnerQuotesBtn'),
+    micBadge: document.getElementById('micBadge_ownerQuotes'),
+    charCount: document.getElementById('ownerQuotesCharCount'),
+    wordCount: document.getElementById('ownerQuotesWordCount'),
+    name: 'Owner Quotes & Testimonials',
+    isMultiLine: true
+  }
+};
 
-const descCharCount = document.getElementById('descCharCount');
-const descWordCount = document.getElementById('descWordCount');
-
+// UI Controls & Indicators
 const submitBtn = document.getElementById('submitBtn');
 const submitBtnText = document.getElementById('submitBtnText');
 const btnSpinner = document.getElementById('btnSpinner');
@@ -36,18 +104,15 @@ const toastTitle = document.getElementById('toastTitle');
 const toastSubtitle = document.getElementById('toastSubtitle');
 const toastCloseBtn = document.getElementById('toastCloseBtn');
 
-// Dialect configuration (Defaults to en-IN for Indian accent accuracy)
-let selectedDialect = 'en-IN';
-
 // Speech Recognition Engine State
 let recognition = null;
-let activeRecordingField = null; // 'topic' | 'desc' | null
+let activeRecordingField = null; // Key of FIELDS or null
 let isUserIntentRecording = false;
 let restartTimeout = null;
 let baseTextAtSessionStart = '';
 let hasSpokenInSession = false;
 
-// Web Audio Pleasant Synthesized Chimes (Output Only - NEVER locks mic input)
+// Web Audio Pleasant Synthesized Chimes (Cosmetic feedback only)
 let chimeAudioCtx = null;
 function playTone(type = 'start') {
   try {
@@ -91,15 +156,15 @@ function playTone(type = 'start') {
       osc.stop(now + 0.3);
     }
   } catch (err) {
-    // Audio feedback is purely cosmetic, ignore any browser policy issues
+    // Audio feedback is purely cosmetic
   }
 }
 
 /**
- * Toggle recording for a specific field ('topic' or 'desc')
+ * Toggle recording for a specific field by key
  */
-function toggleFieldRecording(fieldName) {
-  if (isUserIntentRecording && activeRecordingField === fieldName) {
+function toggleFieldRecording(fieldKey) {
+  if (isUserIntentRecording && activeRecordingField === fieldKey) {
     stopRecording();
     return;
   }
@@ -107,12 +172,12 @@ function toggleFieldRecording(fieldName) {
   if (isUserIntentRecording) {
     stopRecording();
     setTimeout(() => {
-      startFieldRecording(fieldName);
+      startFieldRecording(fieldKey);
     }, 150);
     return;
   }
 
-  startFieldRecording(fieldName);
+  startFieldRecording(fieldKey);
 }
 
 /**
@@ -120,7 +185,7 @@ function toggleFieldRecording(fieldName) {
  * CRITICAL: Zero getUserMedia locks to ensure Bluetooth / Windows audio drivers
  * have 100% exclusive audio transmission to the speech recognition service.
  */
-function startFieldRecording(fieldName) {
+function startFieldRecording(fieldKey) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
@@ -132,15 +197,17 @@ function startFieldRecording(fieldName) {
     return;
   }
 
+  const fieldConfig = FIELDS[fieldKey];
+  if (!fieldConfig || !fieldConfig.input) return;
+
   cleanUpExistingRecognition();
 
-  activeRecordingField = fieldName;
+  activeRecordingField = fieldKey;
   isUserIntentRecording = true;
   hasSpokenInSession = false;
 
   // Snapshot current input value so speech appends naturally
-  const activeInput = fieldName === 'topic' ? topicInput : descInput;
-  baseTextAtSessionStart = activeInput.value ? activeInput.value.trim() + ' ' : '';
+  baseTextAtSessionStart = fieldConfig.input.value ? fieldConfig.input.value.trim() + ' ' : '';
 
   try {
     recognition = new SpeechRecognition();
@@ -149,28 +216,24 @@ function startFieldRecording(fieldName) {
     recognition.maxAlternatives = 1;
     recognition.lang = selectedDialect;
 
-    console.log(`[SpeechEngine] Started listening for ${fieldName} in ${selectedDialect}`);
+    console.log(`[SpeechEngine] Started listening for ${fieldConfig.name} in ${selectedDialect}`);
 
     recognition.onstart = () => {
       playTone('start');
-      if (activeFieldPill) activeFieldPill.classList.remove('hidden');
 
-      if (activeRecordingField === 'topic') {
-        if (listeningFieldText) listeningFieldText.textContent = 'Listening to Topic... Speak now';
-        topicMicBtn.classList.add('active');
-        topicWrapper.classList.add('recording');
-        topicMicBtn.setAttribute('title', 'Listening... Click to stop');
-      } else if (activeRecordingField === 'desc') {
-        if (listeningFieldText) listeningFieldText.textContent = 'Listening to Description... Speak now';
-        descMicBtn.classList.add('active');
-        descWrapper.classList.add('recording');
-        descMicBtn.setAttribute('title', 'Listening... Click to stop');
-      }
-
-      if (micSoundLevelBadge) {
-        micSoundLevelBadge.textContent = 'Mic Active';
-        micSoundLevelBadge.style.color = '#e11d48';
-      }
+      // Highlight active wrapper and activate moving corner mic badge
+      Object.keys(FIELDS).forEach((key) => {
+        const item = FIELDS[key];
+        if (item) {
+          if (key === fieldKey) {
+            if (item.wrapper) item.wrapper.classList.add('recording');
+            if (item.micBadge) item.micBadge.classList.add('active-recording');
+          } else {
+            if (item.wrapper) item.wrapper.classList.remove('recording');
+            if (item.micBadge) item.micBadge.classList.remove('active-recording');
+          }
+        }
+      });
     };
 
     recognition.onspeechstart = () => {
@@ -210,14 +273,11 @@ function startFieldRecording(fieldName) {
       const combined = (baseTextAtSessionStart + spokenContent).trimStart();
       const formatted = combined.charAt(0).toUpperCase() + combined.slice(1);
 
-      if (activeRecordingField === 'topic') {
-        topicInput.value = formatted;
-      } else if (activeRecordingField === 'desc') {
-        descInput.value = formatted;
+      if (fieldConfig.input) {
+        fieldConfig.input.value = formatted;
       }
 
       if (listeningFieldText) {
-        // Show live typing snippet in listening pill
         const words = spokenContent.split(' ');
         const snippet = words.slice(-4).join(' ');
         listeningFieldText.textContent = `✍️ "${snippet}..."`;
@@ -263,16 +323,16 @@ function startFieldRecording(fieldName) {
 
       // If user is still recording, seamlessly continue listening for the next sentence
       if (isUserIntentRecording && activeRecordingField) {
-        // Update base text so subsequent sentences append without overwriting
-        const currentField = activeRecordingField === 'topic' ? topicInput : descInput;
-        baseTextAtSessionStart = currentField.value ? currentField.value.trim() + ' ' : '';
+        const currentField = FIELDS[activeRecordingField];
+        if (currentField && currentField.input) {
+          baseTextAtSessionStart = currentField.input.value ? currentField.input.value.trim() + ' ' : '';
+        }
 
         restartTimeout = setTimeout(() => {
           if (isUserIntentRecording && activeRecordingField) {
             try {
               recognition.start();
             } catch (err) {
-              // If already active or needs recreation, restart cleanly
               startFieldRecording(activeRecordingField);
             }
           }
@@ -301,9 +361,14 @@ function stopRecording() {
   cleanUpExistingRecognition();
   cleanUpUI();
 
-  // Clean trailing spaces and update states
-  topicInput.value = topicInput.value.trim();
-  descInput.value = descInput.value.trim();
+  // Trim trailing spaces and update states
+  Object.keys(FIELDS).forEach((key) => {
+    const f = FIELDS[key];
+    if (f && f.input) {
+      f.input.value = f.input.value.trim();
+    }
+  });
+
   updateFieldStates();
 }
 
@@ -327,65 +392,76 @@ function cleanUpExistingRecognition() {
 
 function cleanUpUI() {
   activeRecordingField = null;
-  if (activeFieldPill) activeFieldPill.classList.add('hidden');
 
-  topicMicBtn.classList.remove('active');
-  topicWrapper.classList.remove('recording');
-  topicMicBtn.setAttribute('title', 'Speak Story Topic (Microphone)');
-
-  descMicBtn.classList.remove('active');
-  descWrapper.classList.remove('recording');
-  descMicBtn.setAttribute('title', 'Speak Short Description (Microphone)');
+  Object.keys(FIELDS).forEach((key) => {
+    const item = FIELDS[key];
+    if (item) {
+      if (item.wrapper) item.wrapper.classList.remove('recording');
+      if (item.micBadge) item.micBadge.classList.remove('active-recording');
+    }
+  });
 }
 
 /**
- * Update UI character counts, clear buttons, and submit button
+ * Update UI character counts, clear buttons, and submit button state
  */
 function updateFieldStates() {
-  const topicVal = topicInput.value.trim();
-  const descVal = descInput.value;
+  let hasAnyContent = false;
 
-  if (topicInput.value.length > 0) {
-    clearTopicBtn.classList.remove('hidden');
-  } else {
-    clearTopicBtn.classList.add('hidden');
-  }
+  Object.keys(FIELDS).forEach((key) => {
+    const field = FIELDS[key];
+    if (!field || !field.input) return;
 
-  const descLen = descVal.length;
-  const descWords = descVal.trim() ? descVal.trim().split(/\s+/).length : 0;
+    const val = field.input.value;
+    const trimmed = val.trim();
 
-  if (descCharCount) descCharCount.textContent = `${descLen} character${descLen === 1 ? '' : 's'}`;
-  if (descWordCount) descWordCount.textContent = `${descWords} word${descWords === 1 ? '' : 's'}`;
+    if (trimmed.length > 0) {
+      hasAnyContent = true;
+    }
 
-  if (descLen > 0) {
-    clearDescBtn.classList.remove('hidden');
-  } else {
-    clearDescBtn.classList.add('hidden');
-  }
+    // Toggle clear button
+    if (field.clearBtn) {
+      if (val.length > 0) {
+        field.clearBtn.classList.remove('hidden');
+      } else {
+        field.clearBtn.classList.add('hidden');
+      }
+    }
 
-  if (topicVal.length > 0 || descVal.trim().length > 0) {
-    submitBtn.disabled = false;
-  } else {
-    submitBtn.disabled = true;
-  }
+    // Update word & character stats for textareas
+    if (field.isMultiLine) {
+      const len = val.length;
+      const words = trimmed ? trimmed.split(/\s+/).length : 0;
+      if (field.charCount) field.charCount.textContent = `${len} character${len === 1 ? '' : 's'}`;
+      if (field.wordCount) field.wordCount.textContent = `${words} word${words === 1 ? '' : 's'}`;
+
+      // Strictly remove scroll on input when there is no text
+      if (!trimmed) {
+        field.input.style.overflowY = 'hidden';
+      } else {
+        field.input.style.overflowY = field.input.scrollHeight > field.input.clientHeight ? 'auto' : 'hidden';
+      }
+    }
+  });
+
+  submitBtn.disabled = !hasAnyContent;
 }
 
 /**
- * Clear actions
+ * Clear a specific field
  */
-function clearTopic() {
-  if (isUserIntentRecording && activeRecordingField === 'topic') stopRecording();
-  topicInput.value = '';
-  baseTextAtSessionStart = '';
-  topicInput.focus();
-  updateFieldStates();
-}
+function clearField(fieldKey) {
+  if (isUserIntentRecording && activeRecordingField === fieldKey) {
+    stopRecording();
+  }
 
-function clearDesc() {
-  if (isUserIntentRecording && activeRecordingField === 'desc') stopRecording();
-  descInput.value = '';
-  baseTextAtSessionStart = '';
-  descInput.focus();
+  const field = FIELDS[fieldKey];
+  if (field && field.input) {
+    field.input.value = '';
+    baseTextAtSessionStart = '';
+    field.input.focus();
+  }
+
   updateFieldStates();
 }
 
@@ -393,11 +469,22 @@ function clearDesc() {
  * Submit Story to Google Sheet
  */
 async function handleSubmitStory() {
-  const topic = topicInput.value.trim();
-  const description = descInput.value.trim();
+  const payload = {
+    storyTitle: FIELDS.storyTitle.input.value.trim(),
+    storySubHeading: FIELDS.storySubHeading.input.value.trim(),
+    storyDescription: FIELDS.storyDescription.input.value.trim(),
+    challengeDescription: FIELDS.challengeDescription.input.value.trim(),
+    planDescription: FIELDS.planDescription.input.value.trim(),
+    makeoverDescription: FIELDS.makeoverDescription.input.value.trim(),
+    ownerQuotes: FIELDS.ownerQuotes.input.value.trim(),
+    language: selectedDialect,
+    timestamp: new Date().toISOString()
+  };
 
-  if (!topic && !description) {
-    showToast('Empty Form', 'Please enter a Topic or a Short Description before submitting.', 'error');
+  const hasContent = Object.values(payload).some((val) => typeof val === 'string' && val.length > 0 && val !== selectedDialect);
+
+  if (!hasContent) {
+    showToast('Empty Manuscript', 'Please dictate or write into at least one field before saving.', 'error');
     return;
   }
 
@@ -406,7 +493,7 @@ async function handleSubmitStory() {
   }
 
   submitBtn.disabled = true;
-  submitBtnText.textContent = 'Saving to Google Sheet...';
+  submitBtnText.textContent = 'Sealing & Syncing to Sheets...';
   btnSpinner.classList.remove('hidden');
 
   try {
@@ -415,12 +502,7 @@ async function handleSubmitStory() {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        topic,
-        description,
-        language: selectedDialect,
-        timestamp: new Date().toISOString()
-      })
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
@@ -432,14 +514,17 @@ async function handleSubmitStory() {
     playTone('success');
 
     showToast(
-      'Story Saved Successfully!',
-      data.message || 'Row appended to Google Sheet.',
+      'Story Sealed & Inked!',
+      data.message || 'Row appended successfully to Google Sheet.',
       'success'
     );
 
     // Reset inputs
-    topicInput.value = '';
-    descInput.value = '';
+    Object.keys(FIELDS).forEach((key) => {
+      if (FIELDS[key].input) {
+        FIELDS[key].input.value = '';
+      }
+    });
     baseTextAtSessionStart = '';
     updateFieldStates();
 
@@ -451,7 +536,7 @@ async function handleSubmitStory() {
       'error'
     );
   } finally {
-    submitBtnText.textContent = 'Save Story to Google Sheet';
+    submitBtnText.textContent = 'Seal & Sync to Google Sheets';
     btnSpinner.classList.add('hidden');
     updateFieldStates();
   }
@@ -495,20 +580,57 @@ function showToast(title, subtitle, type = 'success') {
    Event Listeners
    ========================================================================== */
 
-// Microphone Click Events
-topicMicBtn.addEventListener('click', () => toggleFieldRecording('topic'));
-descMicBtn.addEventListener('click', () => toggleFieldRecording('desc'));
+// Set up field click listeners (Click to record for that specific field)
+Object.keys(FIELDS).forEach((key) => {
+  const field = FIELDS[key];
+  if (!field || !field.wrapper) return;
 
-// Clear Events
-clearTopicBtn.addEventListener('click', clearTopic);
-clearDescBtn.addEventListener('click', clearDesc);
+  // Clicking anywhere on the field wrapper starts/stops recording for this field
+  field.wrapper.addEventListener('click', (e) => {
+    // If clicked on clear eraser button, do not toggle recording
+    if (e.target.closest('.clear-btn')) return;
+    toggleFieldRecording(key);
+  });
 
-// Input Typing Events
-topicInput.addEventListener('input', updateFieldStates);
-descInput.addEventListener('input', updateFieldStates);
+  // Clear button click listener
+  if (field.clearBtn) {
+    field.clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearField(key);
+    });
+  }
 
+  // Input typing listener
+  if (field.input) {
+    field.input.addEventListener('input', updateFieldStates);
+  }
+});
 
-// Keyboard Shortcuts: Ctrl+Enter to submit
+// Stop recording when clicking outside anywhere of the input box
+document.addEventListener('click', (e) => {
+  if (!isUserIntentRecording) return;
+  const clickedInputBox = e.target.closest('.paper-input-container');
+  if (!clickedInputBox) {
+    console.log('[SpeechEngine] Clicked outside input box -> stopping recording');
+    stopRecording();
+  }
+});
+
+// Dynamic Date Stamp (Always current runtime date, never hardcoded)
+function updateCurrentDate() {
+  const todayStamp = document.getElementById('todayStamp');
+  if (todayStamp) {
+    const today = new Date();
+    todayStamp.textContent = today.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
+}
+updateCurrentDate();
+
+// Keyboard Shortcuts: Ctrl+Enter or Cmd+Enter to submit
 window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
@@ -528,13 +650,7 @@ toastCloseBtn.addEventListener('click', () => {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-  const todayStamp = document.getElementById('todayStamp');
-  if (todayStamp) {
-    try {
-      const now = new Date();
-      todayStamp.textContent = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch (e) {}
-  }
+  updateCurrentDate();
   updateFieldStates();
-  console.log('[Storyteller Studio] Ready. Speech Engine listening configured for en-IN.');
+  console.log('[SpeakStory] Ready. Minimal corner recording indicators active.');
 });

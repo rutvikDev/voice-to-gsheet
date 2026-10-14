@@ -22,29 +22,55 @@ function doPost(e) {
     
     // Ensure header row exists if sheet is empty
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["Timestamp", "Speech Transcript", "Language / Notes"]);
-      sheet.getRange(1, 1, 1, 3).setFontWeight("bold").setBackground("#4f46e5").setFontColor("#ffffff");
+      sheet.appendRow([
+        "Timestamp",
+        "Story Title",
+        "Story Sub Heading",
+        "Story Description",
+        "Challenge Description",
+        "Plan Description",
+        "Makeover Description",
+        "Owner Testimonials",
+        "Language"
+      ]);
+      sheet.getRange(1, 1, 1, 9).setFontWeight("bold").setBackground("#b45309").setFontColor("#ffffff");
     }
 
     var requestData = JSON.parse(e.postData.contents);
     var timestamp = requestData.timestamp || new Date().toLocaleString();
-    var text = requestData.text || "";
-    var language = requestData.language || "en-US";
+    var storyTitle = requestData.storyTitle || requestData.topic || "";
+    var storySubHeading = requestData.storySubHeading || "";
+    var storyDesc = requestData.storyDescription || requestData.description || requestData.text || "";
+    var challengeDesc = requestData.challengeDescription || "";
+    var planDesc = requestData.planDescription || "";
+    var makeoverDesc = requestData.makeoverDescription || "";
+    var ownerQuotes = requestData.ownerQuotes || "";
+    var language = requestData.language || "en-IN";
 
-    if (!text) {
+    if (!storyTitle && !storySubHeading && !storyDesc && !challengeDesc && !planDesc && !makeoverDesc && !ownerQuotes) {
       return ContentService.createTextOutput(JSON.stringify({
         status: "error",
-        message: "No text provided"
+        message: "No content provided"
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
     // Append the row to Google Sheet
-    sheet.appendRow([timestamp, text, language]);
+    sheet.appendRow([
+      "'" + timestamp,
+      storyTitle,
+      storySubHeading,
+      storyDesc,
+      challengeDesc,
+      planDesc,
+      makeoverDesc,
+      ownerQuotes,
+      language
+    ]);
 
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
       message: "Row appended successfully",
-      row: [timestamp, text, language]
+      row: [timestamp, storyTitle, storySubHeading, storyDesc, challengeDesc, planDesc, makeoverDesc, ownerQuotes, language]
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
