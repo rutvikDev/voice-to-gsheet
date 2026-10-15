@@ -118,7 +118,7 @@ function playTone(type = 'start') {
   try {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
-    
+
     if (!chimeAudioCtx) {
       chimeAudioCtx = new AudioContextClass();
     }
@@ -384,8 +384,8 @@ function cleanUpExistingRecognition() {
     recognition.onresult = null;
     recognition.onerror = null;
     recognition.onend = null;
-    try { recognition.stop(); } catch (e) {}
-    try { recognition.abort(); } catch (e) {}
+    try { recognition.stop(); } catch (e) { }
+    try { recognition.abort(); } catch (e) { }
     recognition = null;
   }
 }
