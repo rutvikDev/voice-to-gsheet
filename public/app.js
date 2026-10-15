@@ -695,7 +695,7 @@ function showToast(title, subtitle, type = 'success') {
 
   toastTimeout = setTimeout(() => {
     toastMessage.classList.add('hidden');
-  }, 7000);
+  }, 2000);
 }
 
 /* ==========================================================================

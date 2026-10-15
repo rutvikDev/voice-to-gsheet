@@ -1661,8 +1661,8 @@ body.pen-paper-theme {
 
 .toast-banner {
   position: fixed;
-  bottom: clamp(14px, 3vw, 28px);
-  right: clamp(14px, 3vw, 28px);
+  top: clamp(16px, 3vw, 28px);
+  right: clamp(16px, 3vw, 28px);
   background: #ffffff;
   border: 2px solid #10b981;
   border-radius: 10px;
@@ -1672,12 +1672,12 @@ body.pen-paper-theme {
   align-items: center;
   gap: clamp(10px, 2vw, 14px);
   max-width: min(440px, calc(100vw - 28px));
-  z-index: 1000;
-  animation: toastSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10000;
+  animation: toastSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes toastSlideUp {
-  from { transform: translateY(40px); opacity: 0; }
+@keyframes toastSlideDown {
+  from { transform: translateY(-30px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 
@@ -2254,7 +2254,8 @@ body.pen-paper-theme {
   .toast-banner {
     left: 10px;
     right: 10px;
-    bottom: 10px;
+    top: 10px;
+    bottom: auto;
     max-width: none;
     width: auto;
     padding: 10px 12px;

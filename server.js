@@ -370,22 +370,27 @@ function mapSubmissionToRow(headers, data, sequenceNumber = 1) {
   const cleanOwnerDesc = (data.ownerDescription || data['Owner Description'] || data.ownerQuotes || data.ownerTestimonials || data.quotes || '').trim();
   const cleanOwnerQuotes = (data.ownersCardsOwnerCardText || data['Owners Cards_owner_card_text'] || data.ownerCardText || '').trim();
 
-  // Story ID: unique string identifier (e.g. story_1791965673269) saved in 'Story ID' column
-  const generatedStoryId = data.storyId || data.StoryID || data.story_id ||
-    (typeof data.id === 'string' && data.id.startsWith('story_') ? data.id : `story_${Date.now()}`);
+  // Story ID: unique string identifier saved in 'Story ID' column
+  // [COMMENTED OUT] Automatic default entry disabled - only save what user speaks
+  // const generatedStoryId = data.storyId || data.StoryID || data.story_id ||
+  //   (typeof data.id === 'string' && data.id.startsWith('story_') ? data.id : `story_${Date.now()}`);
 
   // Sequenced numeric ID for column A ('id')
-  const seqId = typeof data.id === 'number'
-    ? data.id
-    : (!isNaN(parseInt(data.id, 10)) && !String(data.id).startsWith('story_')
-        ? parseInt(data.id, 10)
-        : sequenceNumber);
+  // [COMMENTED OUT] Automatic default entry disabled - only save what user speaks
+  // const seqId = typeof data.id === 'number'
+  //   ? data.id
+  //   : (!isNaN(parseInt(data.id, 10)) && !String(data.id).startsWith('story_')
+  //       ? parseInt(data.id, 10)
+  //       : sequenceNumber);
 
-  const generatedSlug = data.slug || data.Slug || generateStorySlug(seqId, data);
+  // [COMMENTED OUT] Automatic default entry disabled - only save what user speaks
+  // const generatedSlug = data.slug || data.Slug || generateStorySlug(seqId, data);
 
   // Normalized key dictionary of all incoming payload values
   const normalizedData = {};
   for (const [k, v] of Object.entries(data)) {
+    // Skip internal metadata so only user-spoken field values are mapped to sheet
+    if (k === 'language' || k === 'timestamp') continue;
     if (v !== undefined && v !== null && v !== '') {
       normalizedData[normalizeKey(k)] = v;
     }
@@ -400,7 +405,8 @@ function mapSubmissionToRow(headers, data, sequenceNumber = 1) {
 
     let assignedValue = '';
 
-    // Precise mapping based on actual column definitions
+    // [COMMENTED OUT] Automatic default entries - only show what user speaks in field, no automatic entry
+    /*
     if (hNorm === 'id' && colIndex === 0) {
       // Column A (Col 1): Sequenced numeric ID
       assignedValue = seqId;
@@ -411,7 +417,9 @@ function mapSubmissionToRow(headers, data, sequenceNumber = 1) {
       assignedValue = generatedSlug;
     } else if (hNorm === 'status' && colIndex === 2) {
       assignedValue = data.status || data.Status || 'Draft';
-    } else if (hNorm === 'storytitle') {
+    } else
+    */
+    if (hNorm === 'storytitle') {
       assignedValue = cleanStoryTitle;
     } else if (hNorm === 'storysubheading') {
       assignedValue = cleanStorySubHeading;
@@ -430,7 +438,7 @@ function mapSubmissionToRow(headers, data, sequenceNumber = 1) {
       // Card text mapping if explicitly provided
       assignedValue = cleanOwnerQuotes;
     } else if (normalizedData[hNorm] !== undefined) {
-      // Automatic fallback for any other column in the 104 fields
+      // Spoken value for any column matching user inputs (including id, slug, status, storyId)
       assignedValue = String(normalizedData[hNorm]);
     }
 
@@ -445,7 +453,13 @@ function mapSubmissionToRow(headers, data, sequenceNumber = 1) {
     }
   });
 
-  return { row, mappedSummary, sequenceNumber: seqId, generatedStoryId, generatedSlug };
+  return {
+    row,
+    mappedSummary,
+    sequenceNumber: normalizedData['id'] || '',
+    generatedStoryId: normalizedData['storyid'] || '',
+    generatedSlug: normalizedData['slug'] || ''
+  };
 }
 
 /**
@@ -464,10 +478,11 @@ async function appendStoryToSheet(saCreds, submissionData) {
   const headers = await ensureHeaders(sheets);
 
   // 2. Compute next sequential numeric ID for Column A ('id')
-  const nextSeq = await getNextSequenceNumber(sheets);
+  // [COMMENTED OUT] Automatic sequence calculation disabled
+  // const nextSeq = await getNextSequenceNumber(sheets);
 
   // 3. Map payload to the exact columns of the sheet
-  const { row, mappedSummary, sequenceNumber, generatedStoryId, generatedSlug } = mapSubmissionToRow(headers, submissionData, nextSeq);
+  const { row, mappedSummary, sequenceNumber, generatedStoryId, generatedSlug } = mapSubmissionToRow(headers, submissionData);
 
   // 4. Append to the full width range
   const lastColLetter = getColumnLetter(headers.length);
@@ -614,10 +629,15 @@ app.post('/api/submit', async (req, res) => {
     }
 
     const entry = {
-      id: sheetResult?.sequenceNumber || (sessionStories.length + 1),
-      storyId: sheetResult?.generatedStoryId || `story_${Date.now()}`,
-      slug: sheetResult?.generatedSlug || slugify(cleanStoryTitle),
-      storyTitle: cleanStoryTitle || '(Untitled Story)',
+      // [COMMENTED OUT] Automatic fallbacks disabled - reflect user input only
+      // id: sheetResult?.sequenceNumber || (sessionStories.length + 1),
+      // storyId: sheetResult?.generatedStoryId || `story_${Date.now()}`,
+      // slug: sheetResult?.generatedSlug || slugify(cleanStoryTitle),
+      // storyTitle: cleanStoryTitle || '(Untitled Story)',
+      id: sheetResult?.sequenceNumber || req.body.id || req.body['id'] || '',
+      storyId: sheetResult?.generatedStoryId || req.body.storyId || req.body['Story ID'] || '',
+      slug: sheetResult?.generatedSlug || req.body.slug || req.body['Slug'] || '',
+      storyTitle: cleanStoryTitle || '',
       storySubHeading: cleanStorySubHeading,
       storyDescription: cleanStoryDescription,
       challengeDescription: cleanChallengeDesc,
