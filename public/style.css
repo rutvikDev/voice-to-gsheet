@@ -73,6 +73,40 @@
 }
 
 /* ==========================================================================
+   Universal Scrollbar Suppression (All Browsers, Zoom Levels, PC & Mobile)
+   Completely hides visual scrollbars while keeping smooth touch/wheel scrolling intact.
+   ========================================================================== */
+
+html,
+body,
+* {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE 10+ and Edge Legacy */
+}
+
+/* WebKit / Chromium (Chrome, Edge, Safari, iOS Safari, Android Chrome/WebView) */
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  -webkit-appearance: none !important;
+}
+
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner,
+*::-webkit-resizer {
+  display: none !important;
+  background: transparent !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* ==========================================================================
    Base & Reset
    ========================================================================== */
 
@@ -80,6 +114,9 @@ html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   box-sizing: border-box;
+  height: 100%;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 *, *::before, *::after {
@@ -93,13 +130,17 @@ body.pen-paper-theme {
   background: var(--desk-bg);
   background: var(--desk-gradient);
   color: var(--ink-primary);
+  height: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   position: relative;
   overflow-x: hidden;
+  overflow-y: auto;
   width: 100%;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 /* Desk backdrop canvas with fine grain */
@@ -107,10 +148,13 @@ body.pen-paper-theme {
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
+  height: 100%;
   width: 100%;
-  padding: var(--canvas-padding-y) var(--canvas-padding-x) clamp(20px, 4vw, 50px);
+  padding: clamp(8px, 1.5vh, 16px) var(--canvas-padding-x) clamp(8px, 1.8vh, 18px);
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .desk-wood-vignette {
@@ -132,8 +176,10 @@ body.pen-paper-theme {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--app-gap);
+  gap: clamp(8px, 1.4vh, 16px);
   flex: 1;
+  min-height: 0;
+  height: 100%;
 }
 
 /* ==========================================================================
@@ -148,6 +194,7 @@ body.pen-paper-theme {
   flex-wrap: wrap;
   padding: 2px 4px;
   width: 100%;
+  flex-shrink: 0;
 }
 
 .brand-stationery {
@@ -292,16 +339,21 @@ body.pen-paper-theme {
 
 .notepad-layout-wrapper {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 26px;
   width: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .notepad-container {
   position: relative;
   flex: 1;
   min-width: 0;
-  margin-top: 10px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: clamp(4px, 1vh, 10px);
 }
 
 /* Brass Bulldog Binder Clip on Top */
@@ -605,7 +657,8 @@ body.pen-paper-theme {
   border-radius: 8px;
   box-shadow: var(--paper-shadow);
   padding: 0;
-  min-height: clamp(480px, 60vh, 580px);
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -615,10 +668,11 @@ body.pen-paper-theme {
 /* Binding Bar at Top */
 .notepad-binding-bar {
   background: linear-gradient(180deg, #333a42 0%, #202429 100%);
-  height: clamp(32px, 4.5vw, 38px);
+  height: clamp(30px, 4vw, 36px);
   position: relative;
   border-bottom: 2px solid #14171a;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 3px 6px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
 }
 
 .binding-stitches {
@@ -676,10 +730,13 @@ body.pen-paper-theme {
 .notepad-content {
   position: relative;
   z-index: 2;
-  padding: clamp(18px, 3.2vw, 36px) clamp(10px, 2.5vw, 36px) clamp(16px, 2.5vw, 32px) var(--notepad-left-pad);
+  flex: 1;
+  min-height: 0;
+  padding: clamp(10px, 1.8vh, 22px) clamp(10px, 2.5vw, 36px) 0 var(--notepad-left-pad);
   display: flex;
   flex-direction: column;
-  gap: clamp(14px, 2.2vw, 24px);
+  overflow: hidden;
+  gap: 0;
   transition: padding var(--transition-smooth);
   width: 100%;
 }
@@ -834,20 +891,23 @@ body.pen-paper-theme {
    ========================================================================== */
 
 .form-scroll-container {
-  max-height: clamp(360px, calc(100vh - 280px), 640px);
+  flex: 1;
   min-height: 0;
+  max-height: none;
   overflow-y: auto;
   overscroll-behavior: contain;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
   padding-right: clamp(4px, 1vw, 8px);
   padding-bottom: 8px;
 }
 
 .form-scroll-container::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  display: none !important; /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* ==========================================================================
@@ -1141,7 +1201,8 @@ body.pen-paper-theme {
   resize: none;
   overflow: hidden;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
   min-height: clamp(100px, 15vh, 130px);
 
   /* Classic Notebook Ruled Lines */
@@ -1163,6 +1224,14 @@ body.pen-paper-theme {
 
 .paper-ruled-textarea:not(:placeholder-shown) {
   overflow-y: auto;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.paper-ruled-textarea::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .paper-text-input {
@@ -1392,16 +1461,17 @@ body.pen-paper-theme {
    ========================================================================== */
 
 .notepad-sticky-actions {
-  position: sticky;
+  flex-shrink: 0;
+  position: relative;
   bottom: 0;
   z-index: 15;
-  background: linear-gradient(180deg, rgba(255, 253, 250, 0.78) 0%, rgba(255, 253, 250, 0.98) 28%, #fffdfa 100%);
+  background: linear-gradient(180deg, rgba(255, 253, 250, 0.85) 0%, rgba(255, 253, 250, 0.98) 28%, #fffdfa 100%);
   border-top: 1.5px dashed #ded4c3;
-  padding: clamp(10px, 2.2vw, 16px) clamp(4px, 1vw, 8px) clamp(6px, 1.2vw, 8px);
-  margin-top: 6px;
+  padding: clamp(8px, 1.4vh, 14px) clamp(4px, 1vw, 8px) clamp(6px, 1.2vh, 10px);
+  margin-top: 4px;
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 1.6vw, 12px);
+  gap: clamp(6px, 1vh, 10px);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -1691,24 +1761,14 @@ body.pen-paper-theme {
 /* Laptops & Mid Desktops (<= 960px) */
 @media (max-width: 960px) {
   :root {
-    --notepad-left-pad: 68px;
-    --margin-red-left: 50px;
+    --notepad-left-pad: 54px;
+    --margin-red-left: 38px;
   }
 
   .notepad-layout-wrapper {
-    flex-direction: column;
-  }
-
-  .desk-accessories {
-    width: 100%;
     flex-direction: row;
-    flex-wrap: wrap;
-    padding-top: 0;
-  }
-
-  .sticky-note, .desk-card-companion {
-    flex: 1 1 280px;
-    transform: none !important;
+    flex: 1;
+    min-height: 0;
   }
 }
 
@@ -1731,6 +1791,8 @@ body.pen-paper-theme {
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
   }
 
   .desk-canvas {
@@ -1882,6 +1944,14 @@ body.pen-paper-theme {
     overscroll-behavior: contain;
     padding-bottom: 8px;
     padding-right: 4px;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .form-scroll-container::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   .story-form {
@@ -1944,12 +2014,20 @@ body.pen-paper-theme {
     resize: none !important;
     overflow: hidden !important;
     overflow-y: hidden !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
     background-image: repeating-linear-gradient(
       transparent,
       transparent 25px,
       var(--paper-line) 25px,
       var(--paper-line) 26px
     );
+  }
+
+  .paper-ruled-textarea::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   .paper-ruled-textarea:placeholder-shown,
@@ -1960,6 +2038,8 @@ body.pen-paper-theme {
 
   .paper-ruled-textarea:not(:placeholder-shown) {
     overflow-y: auto !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
   }
 
   .desc-actions {
