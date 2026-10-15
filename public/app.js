@@ -77,18 +77,25 @@ const FIELDS = {
     name: 'Makeover Description',
     isMultiLine: true
   },
-  ownerQuotes: {
-    id: 'ownerQuotes',
-    input: document.getElementById('ownerQuotesInput'),
-    wrapper: document.getElementById('ownerQuotesWrapper'),
-    clearBtn: document.getElementById('clearOwnerQuotesBtn'),
-    micBadge: document.getElementById('micBadge_ownerQuotes'),
-    charCount: document.getElementById('ownerQuotesCharCount'),
-    wordCount: document.getElementById('ownerQuotesWordCount'),
-    name: 'Owner Quotes & Testimonials',
+  ownerDescription: {
+    id: 'ownerDescription',
+    input: document.getElementById('ownerDescInput') || document.getElementById('ownerQuotesInput'),
+    wrapper: document.getElementById('ownerDescWrapper') || document.getElementById('ownerQuotesWrapper'),
+    clearBtn: document.getElementById('clearOwnerDescBtn') || document.getElementById('clearOwnerQuotesBtn'),
+    micBadge: document.getElementById('micBadge_ownerDescription') || document.getElementById('micBadge_ownerQuotes'),
+    charCount: document.getElementById('ownerDescCharCount') || document.getElementById('ownerQuotesCharCount'),
+    wordCount: document.getElementById('ownerDescWordCount') || document.getElementById('ownerQuotesWordCount'),
+    name: 'Owner Description',
     isMultiLine: true
   }
 };
+
+// Backward-compatibility alias for legacy references
+Object.defineProperty(FIELDS, 'ownerQuotes', {
+  get() { return FIELDS.ownerDescription; },
+  enumerable: false,
+  configurable: true
+});
 
 // UI Controls & Indicators
 const submitBtn = document.getElementById('submitBtn');
@@ -476,7 +483,8 @@ async function handleSubmitStory() {
     challengeDescription: FIELDS.challengeDescription.input.value.trim(),
     planDescription: FIELDS.planDescription.input.value.trim(),
     makeoverDescription: FIELDS.makeoverDescription.input.value.trim(),
-    ownerQuotes: FIELDS.ownerQuotes.input.value.trim(),
+    ownerDescription: (FIELDS.ownerDescription || FIELDS.ownerQuotes).input.value.trim(),
+    ownerQuotes: (FIELDS.ownerDescription || FIELDS.ownerQuotes).input.value.trim(),
     language: selectedDialect,
     timestamp: new Date().toISOString()
   };

@@ -368,8 +368,8 @@ function mapSubmissionToRow(headers, data, sequenceNumber = 1) {
   const cleanChallengeDesc = (data.challengeDescription || data.challangeDescription || data.challenge || '').trim();
   const cleanPlanDesc = (data.planDescription || data.plan || '').trim();
   const cleanMakeoverDesc = (data.makeoverDescription || data.makeover || '').trim();
-  const cleanOwnerQuotes = (data.ownerQuotes || data.ownerTestimonials || data.quotes || '').trim();
-  const cleanOwnerDesc = (data.ownerDescription || '').trim();
+  const cleanOwnerDesc = (data.ownerDescription || data.ownerQuotes || data.ownerTestimonials || data.quotes || '').trim();
+  const cleanOwnerQuotes = (data.ownersCardsOwnerCardText || data.ownerCardText || '').trim();
 
   // Story ID: unique string identifier (e.g. story_1791965673269) saved in 'Story ID' column
   const generatedStoryId = data.storyId || data.StoryID || data.story_id ||
@@ -424,11 +424,12 @@ function mapSubmissionToRow(headers, data, sequenceNumber = 1) {
       assignedValue = cleanPlanDesc;
     } else if (hNorm === 'makeoverdescription') {
       assignedValue = cleanMakeoverDesc;
-    } else if (hNorm === 'ownerscardsownercardtext') {
-      // Primary mapping for owner testimonial quote cards
-      assignedValue = cleanOwnerQuotes;
     } else if (hNorm === 'ownerdescription') {
-      assignedValue = cleanOwnerDesc || (cleanOwnerQuotes && !headers.some(other => normalizeKey(other) === 'ownerscardsownercardtext') ? cleanOwnerQuotes : '');
+      // Primary mapping for the 7th field: Owner Description
+      assignedValue = cleanOwnerDesc;
+    } else if (hNorm === 'ownerscardsownercardtext') {
+      // Card text mapping if explicitly provided
+      assignedValue = cleanOwnerQuotes;
     } else if (normalizedData[hNorm] !== undefined) {
       // Automatic fallback for any other column in the 104 fields
       assignedValue = String(normalizedData[hNorm]);
@@ -531,6 +532,7 @@ app.post('/api/submit', async (req, res) => {
       challengeDescription,
       planDescription,
       makeoverDescription,
+      ownerDescription,
       ownerQuotes,
       // Backwards compatibility with previous field names
       topic,
@@ -546,10 +548,10 @@ app.post('/api/submit', async (req, res) => {
     const cleanChallengeDesc = (challengeDescription || '').trim();
     const cleanPlanDesc = (planDescription || '').trim();
     const cleanMakeoverDesc = (makeoverDescription || '').trim();
-    const cleanOwnerQuotes = (ownerQuotes || '').trim();
+    const cleanOwnerDesc = (ownerDescription || ownerQuotes || '').trim();
 
     if (!cleanStoryTitle && !cleanStorySubHeading && !cleanStoryDescription &&
-        !cleanChallengeDesc && !cleanPlanDesc && !cleanMakeoverDesc && !cleanOwnerQuotes) {
+        !cleanChallengeDesc && !cleanPlanDesc && !cleanMakeoverDesc && !cleanOwnerDesc) {
       return res.status(400).json({
         success: false,
         error: 'Please enter or speak into at least one field before saving to Google Sheets.'
@@ -585,7 +587,8 @@ app.post('/api/submit', async (req, res) => {
           challengeDescription: cleanChallengeDesc,
           planDescription: cleanPlanDesc,
           makeoverDescription: cleanMakeoverDesc,
-          ownerQuotes: cleanOwnerQuotes,
+          ownerDescription: cleanOwnerDesc,
+          ownerQuotes: cleanOwnerDesc,
           timestamp: displayTimestamp
         });
         syncedToSheet = true;
@@ -616,7 +619,8 @@ app.post('/api/submit', async (req, res) => {
       challengeDescription: cleanChallengeDesc,
       planDescription: cleanPlanDesc,
       makeoverDescription: cleanMakeoverDesc,
-      ownerQuotes: cleanOwnerQuotes,
+      ownerDescription: cleanOwnerDesc,
+      ownerQuotes: cleanOwnerDesc,
       timestamp: displayTimestamp,
       language,
       syncedToSheet,

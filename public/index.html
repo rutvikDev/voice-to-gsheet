@@ -314,27 +314,27 @@
                     </div-->
                   </section>
 
-                  <!-- FIELD 7: Owner Quotes & Testimonials -->
+                  <!-- FIELD 7: Owner Description -->
                   <section class="notepad-row">
                     <div class="row-header">
-                      <label for="ownerQuotesInput" class="ruled-label">
+                      <label for="ownerDescInput" class="ruled-label">
                         <span class="handwritten-number">7.</span>
-                        <span class="label-heading">Owners Cards_owner_card_text</span>
+                        <span class="label-heading">Owner Description</span>
                       </label>
-                      <div class="corner-mic-badge" id="micBadge_ownerQuotes" title="Recording active on Owner Quotes">
+                      <div class="corner-mic-badge" id="micBadge_ownerDescription" title="Recording active on Owner Description">
                         <span class="live-dot"></span>
 
                         <span class="rec-label">Recording</span>
                       </div>
                     </div>
 
-                    <div class="paper-input-container field-multi-line" id="ownerQuotesWrapper">
-                      <textarea id="ownerQuotesInput" class="paper-ruled-textarea"
-                        placeholder="Speak the homeowner's quotes... &ldquo;We never imagined our small space could feel so open and bright. Cooking together every morning has become our favorite family ritual.&rdquo;"
+                    <div class="paper-input-container field-multi-line" id="ownerDescWrapper">
+                      <textarea id="ownerDescInput" class="paper-ruled-textarea"
+                        placeholder="Speak or write the owner description... The homeowners wanted an open, welcoming environment that celebrates natural light..."
                         rows="4" spellcheck="true"></textarea>
                       <div class="input-actions-right desc-actions">
-                        <button type="button" id="clearOwnerQuotesBtn" class="paper-action-btn clear-btn hidden"
-                          title="Erase testimonials" aria-label="Clear owner testimonials">
+                        <button type="button" id="clearOwnerDescBtn" class="paper-action-btn clear-btn hidden"
+                          title="Erase owner description" aria-label="Clear owner description">
                           <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                             stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 6L6 18M6 6l12 12" />
@@ -346,9 +346,9 @@
                     <!--div class="manuscript-meta-row">
                       <div class="meta-stats">
                         <span class="quill-count-icon">🖋️</span>
-                        <span id="ownerQuotesWordCount" class="stat-pill">0 words</span>
+                        <span id="ownerDescWordCount" class="stat-pill">0 words</span>
                         <span class="meta-separator">&bull;</span>
-                        <span id="ownerQuotesCharCount" class="stat-pill">0 characters</span>
+                        <span id="ownerDescCharCount" class="stat-pill">0 characters</span>
                       </div>
                       <div class="meta-guarantee">
                       </div>
@@ -365,17 +365,9 @@
                   <button type="button" id="submitBtn" class="wax-seal-btn" disabled>
                     <!-- Wax Seal Emblem SVG -->
                     <div class="seal-icon-wrapper">
-                      <svg class="wax-seal-svg" viewBox="0 0 28 28" fill="none" stroke="currentColor">
-                        <circle cx="14" cy="14" r="12" stroke-width="1.8" stroke-dasharray="2 2" opacity="0.6" />
-                        <circle cx="14" cy="14" r="10" stroke-width="1.6" />
-                        <rect x="8" y="8" width="12" height="12" rx="1.5" stroke-width="1.4" />
-                        <line x1="8" y1="12" x2="20" y2="12" stroke-width="1.2" />
-                        <line x1="8" y1="16" x2="20" y2="16" stroke-width="1.2" />
-                        <line x1="13" y1="8" x2="13" y2="20" stroke-width="1.2" />
-                      </svg>
                     </div>
 
-                    <span id="submitBtnText" class="seal-btn-label">Sync to Google Sheets</span>
+                    <span id="submitBtnText" class="seal-btn-label">Submit</span>
 
                     <svg class="feather-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                       stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -399,13 +391,7 @@
                       <line x1="9" y1="3" x2="9" y2="21" stroke="#ffffff" stroke-width="1.2" opacity="0.9" />
                       <line x1="15" y1="3" x2="15" y2="21" stroke="#ffffff" stroke-width="1.2" opacity="0.9" />
                     </svg>
-                    <span class="sheet-btn-label">Open Google Sheet</span>
-                    <svg class="external-link-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                      <polyline points="15 3 21 3 21 9"></polyline>
-                      <line x1="10" y1="14" x2="21" y2="3"></line>
-                    </svg>
+                    <span class="sheet-btn-label">View GSheet</span>
                   </a>
                 </div>
 

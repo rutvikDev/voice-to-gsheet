@@ -30,7 +30,7 @@ function doPost(e) {
         "Challenge Description",
         "Plan Description",
         "Makeover Description",
-        "Owner Testimonials",
+        "Owner Description",
         "Language"
       ]);
       sheet.getRange(1, 1, 1, 9).setFontWeight("bold").setBackground("#b45309").setFontColor("#ffffff");
@@ -44,10 +44,10 @@ function doPost(e) {
     var challengeDesc = requestData.challengeDescription || "";
     var planDesc = requestData.planDescription || "";
     var makeoverDesc = requestData.makeoverDescription || "";
-    var ownerQuotes = requestData.ownerQuotes || "";
+    var ownerDescription = requestData.ownerDescription || requestData.ownerQuotes || "";
     var language = requestData.language || "en-IN";
 
-    if (!storyTitle && !storySubHeading && !storyDesc && !challengeDesc && !planDesc && !makeoverDesc && !ownerQuotes) {
+    if (!storyTitle && !storySubHeading && !storyDesc && !challengeDesc && !planDesc && !makeoverDesc && !ownerDescription) {
       return ContentService.createTextOutput(JSON.stringify({
         status: "error",
         message: "No content provided"
@@ -63,14 +63,14 @@ function doPost(e) {
       challengeDesc,
       planDesc,
       makeoverDesc,
-      ownerQuotes,
+      ownerDescription,
       language
     ]);
 
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
       message: "Row appended successfully",
-      row: [timestamp, storyTitle, storySubHeading, storyDesc, challengeDesc, planDesc, makeoverDesc, ownerQuotes, language]
+      row: [timestamp, storyTitle, storySubHeading, storyDesc, challengeDesc, planDesc, makeoverDesc, ownerDescription, language]
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
