@@ -1155,6 +1155,20 @@ body.pen-paper-theme {
   line-height: 1.4;
   min-width: 0;
   width: 100%;
+
+  /* Hidden scrollbars: horizontally scrollable when input text exceeds input bounds */
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  white-space: nowrap;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.paper-text-input::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .paper-text-input::placeholder {
@@ -1184,10 +1198,14 @@ body.pen-paper-theme {
   color: var(--ink-primary);
   line-height: var(--line-height-textarea); /* Matches ruled line repeat */
   resize: none;
-  overflow: hidden;
-  overflow-y: hidden;
+  overscroll-behavior: contain;
+
+  /* Hidden scrollbars: vertically scrollable when input text exceeds textarea bounds */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
+  -webkit-overflow-scrolling: touch;
   min-height: clamp(100px, 15vh, 130px);
 
   /* Classic Notebook Ruled Lines */
@@ -1200,15 +1218,17 @@ body.pen-paper-theme {
   background-attachment: local;
 }
 
-/* Never show scrollbars when input/textarea is empty or showing placeholder */
+/* Always keep scrollbars hidden while allowing smooth native scrolling */
 .paper-ruled-textarea:placeholder-shown,
 .paper-ruled-textarea:empty {
-  overflow: hidden !important;
-  overflow-y: hidden !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .paper-ruled-textarea:not(:placeholder-shown) {
-  overflow-y: auto;
+  overflow-y: auto !important;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
@@ -1217,10 +1237,6 @@ body.pen-paper-theme {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
-}
-
-.paper-text-input {
-  overflow: hidden !important;
 }
 
 .paper-ruled-textarea::placeholder {
@@ -1994,6 +2010,18 @@ body.pen-paper-theme {
     padding: 7px 10px;
     font-size: 1rem; /* iOS Safari minimum 16px */
     line-height: 1.35;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .paper-text-input::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   .paper-ruled-textarea {
@@ -2002,10 +2030,12 @@ body.pen-paper-theme {
     line-height: 26px;
     min-height: 72px;
     resize: none !important;
-    overflow: hidden !important;
-    overflow-y: hidden !important;
+    overscroll-behavior: contain;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
+    -webkit-overflow-scrolling: touch;
     background-image: repeating-linear-gradient(
       transparent,
       transparent 25px,
@@ -2022,8 +2052,10 @@ body.pen-paper-theme {
 
   .paper-ruled-textarea:placeholder-shown,
   .paper-ruled-textarea:empty {
-    overflow: hidden !important;
-    overflow-y: hidden !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
   }
 
   .paper-ruled-textarea:not(:placeholder-shown) {

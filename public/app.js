@@ -588,6 +588,17 @@ function startFieldRecording(fieldKey, isSilentRestart = false) {
           fieldConfig.input.setSelectionRange(cursorOffset, cursorOffset);
         } catch (e) { }
 
+        // Keep active voice text in view when text overflows the input size
+        if (!fieldConfig.isMultiLine) {
+          if (cursorOffset >= fullText.length - 2) {
+            fieldConfig.input.scrollLeft = fieldConfig.input.scrollWidth;
+          }
+        } else {
+          if (cursorOffset >= fullText.length - 10) {
+            fieldConfig.input.scrollTop = fieldConfig.input.scrollHeight;
+          }
+        }
+
         setTimeout(() => {
           isProgrammaticCursorUpdate = false;
         }, 0);
@@ -777,6 +788,8 @@ function clearField(fieldKey) {
 
   // Clear value and reset voice snapshot
   field.input.value = '';
+  field.input.scrollLeft = 0;
+  field.input.scrollTop = 0;
   sessionPrefix = '';
   sessionSuffix = '';
   sessionFinalText = '';
@@ -1093,9 +1106,37 @@ toastCloseBtn.addEventListener('click', () => {
   toastMessage.classList.add('hidden');
 });
 
+/**
+ * Enables smooth mouse-wheel horizontal scrolling inside single-line inputs
+ * whenever the text exceeds the visible input width, without showing scrollbars.
+ */
+function initInputScrollHandling() {
+  const textInputs = document.querySelectorAll('.paper-text-input');
+  textInputs.forEach((input) => {
+    input.addEventListener('wheel', (e) => {
+      if (input.scrollWidth > input.clientWidth) {
+        // Prioritize horizontal trackpad swipe or convert vertical mouse wheel to horizontal scroll
+        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        if (delta !== 0) {
+          const maxScroll = input.scrollWidth - input.clientWidth;
+          const currentScroll = input.scrollLeft;
+          const canScrollRight = delta > 0 && currentScroll < maxScroll - 1;
+          const canScrollLeft = delta < 0 && currentScroll > 1;
+
+          if (canScrollRight || canScrollLeft) {
+            e.preventDefault();
+            input.scrollLeft += delta;
+          }
+        }
+      }
+    }, { passive: false });
+  });
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
   updateCurrentDate();
   updateFieldStates();
+  initInputScrollHandling();
   console.log('[SpeakStory] Ready. Minimal corner recording indicators active.');
 });
