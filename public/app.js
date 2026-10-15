@@ -192,7 +192,7 @@ function toggleFieldRecording(fieldKey) {
  * CRITICAL: Zero getUserMedia locks to ensure Bluetooth / Windows audio drivers
  * have 100% exclusive audio transmission to the speech recognition service.
  */
-function startFieldRecording(fieldKey) {
+function startFieldRecording(fieldKey, isSilentRestart = false) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
@@ -216,6 +216,10 @@ function startFieldRecording(fieldKey) {
   // Snapshot current input value so speech appends naturally
   baseTextAtSessionStart = fieldConfig.input.value ? fieldConfig.input.value.trim() + ' ' : '';
 
+  if (fieldConfig.wrapper) {
+    fieldConfig.wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
   try {
     recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -226,7 +230,9 @@ function startFieldRecording(fieldKey) {
     console.log(`[SpeechEngine] Started listening for ${fieldConfig.name} in ${selectedDialect}`);
 
     recognition.onstart = () => {
-      playTone('start');
+      if (!isSilentRestart) {
+        playTone('start');
+      }
 
       // Highlight active wrapper and activate moving corner mic badge
       Object.keys(FIELDS).forEach((key) => {
@@ -337,11 +343,7 @@ function startFieldRecording(fieldKey) {
 
         restartTimeout = setTimeout(() => {
           if (isUserIntentRecording && activeRecordingField) {
-            try {
-              recognition.start();
-            } catch (err) {
-              startFieldRecording(activeRecordingField);
-            }
+            startFieldRecording(activeRecordingField, true);
           }
         }, 100);
       } else {
@@ -455,21 +457,24 @@ function updateFieldStates() {
 }
 
 /**
- * Clear a specific field
+ * Clear a specific field and immediately activate voice recording
  */
 function clearField(fieldKey) {
-  if (isUserIntentRecording && activeRecordingField === fieldKey) {
-    stopRecording();
-  }
-
   const field = FIELDS[fieldKey];
-  if (field && field.input) {
-    field.input.value = '';
-    baseTextAtSessionStart = '';
-    field.input.focus();
-  }
+  if (!field || !field.input) return;
 
+  // Clear value and reset voice snapshot
+  field.input.value = '';
+  baseTextAtSessionStart = '';
   updateFieldStates();
+
+  // Focus the input
+  field.input.focus();
+
+  // Immediately start speech recognition on this cleared field
+  // so whatever the user speaks next is immediately transcribed
+  cleanUpExistingRecognition();
+  startFieldRecording(fieldKey);
 }
 
 /**
@@ -501,7 +506,7 @@ async function handleSubmitStory() {
   }
 
   submitBtn.disabled = true;
-  submitBtnText.textContent = 'Sealing & Syncing to Sheets...';
+  submitBtnText.textContent = 'Sending to Google Sheet...';
   btnSpinner.classList.remove('hidden');
 
   try {
@@ -522,7 +527,7 @@ async function handleSubmitStory() {
     playTone('success');
 
     showToast(
-      'Story Sealed & Inked!',
+      'Data Sent to Google Sheet!',
       data.message || 'Row appended successfully to Google Sheet.',
       'success'
     );
@@ -544,7 +549,7 @@ async function handleSubmitStory() {
       'error'
     );
   } finally {
-    submitBtnText.textContent = 'Seal & Sync to Google Sheets';
+    submitBtnText.textContent = 'Send to Google Sheet';
     btnSpinner.classList.add('hidden');
     updateFieldStates();
   }
@@ -588,17 +593,43 @@ function showToast(title, subtitle, type = 'success') {
    Event Listeners
    ========================================================================== */
 
-// Set up field click listeners (Click to record for that specific field)
+// Set up field listeners (Focusing or clicking anywhere on a field activates and maintains recording)
 Object.keys(FIELDS).forEach((key) => {
   const field = FIELDS[key];
   if (!field || !field.wrapper) return;
 
-  // Clicking anywhere on the field wrapper starts/stops recording for this field
+  // Clicking anywhere on the field wrapper ensures focus and keeps/starts recording
   field.wrapper.addEventListener('click', (e) => {
-    // If clicked on clear eraser button, do not toggle recording
+    // If clicked on clear eraser button, clearField handles it
     if (e.target.closest('.clear-btn')) return;
-    toggleFieldRecording(key);
+
+    // Focus input if not already focused
+    if (document.activeElement !== field.input && field.input) {
+      field.input.focus();
+    }
+
+    // Ensure speech recognition is active for this field (do NOT turn off while user is in the field)
+    if (activeRecordingField !== key || !isUserIntentRecording) {
+      startFieldRecording(key);
+    }
   });
+
+  // Input focus listener: When focused (via click, Tab key, or programmatic focus), activate recording
+  if (field.input) {
+    field.input.addEventListener('focus', () => {
+      if (activeRecordingField !== key || !isUserIntentRecording) {
+        startFieldRecording(key);
+      }
+    });
+
+    // When user manually types or edits, keep base snapshot in sync
+    field.input.addEventListener('input', (e) => {
+      if (e.isTrusted) {
+        baseTextAtSessionStart = field.input.value ? field.input.value.trim() + ' ' : '';
+      }
+      updateFieldStates();
+    });
+  }
 
   // Clear button click listener
   if (field.clearBtn) {
@@ -608,9 +639,17 @@ Object.keys(FIELDS).forEach((key) => {
     });
   }
 
-  // Input typing listener
-  if (field.input) {
-    field.input.addEventListener('input', updateFieldStates);
+  // Clicking the active corner mic badge allows explicitly stopping recording if desired
+  if (field.micBadge) {
+    field.micBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isUserIntentRecording && activeRecordingField === key) {
+        stopRecording();
+      } else {
+        if (field.input) field.input.focus();
+        startFieldRecording(key);
+      }
+    });
   }
 });
 

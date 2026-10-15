@@ -46,18 +46,19 @@
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Fluid Responsive Scaling Tokens */
-  --canvas-padding-y: clamp(14px, 3.5vw, 30px);
-  --canvas-padding-x: clamp(8px, 2.5vw, 20px);
-  --app-gap: clamp(14px, 2.5vw, 26px);
-  --title-size: clamp(1.22rem, 3.6vw, 1.85rem);
-  --subtitle-size: clamp(0.76rem, 2vw, 0.9rem);
-  --label-heading-size: clamp(0.96rem, 2.4vw, 1.15rem);
-  --number-size: clamp(1.18rem, 3vw, 1.55rem);
-  --input-font-size: clamp(1rem, 2.2vw, 1.12rem); /* >= 16px to prevent iOS auto-zoom */
-  --line-height-textarea: 34px;
-  --notepad-left-pad: 84px;
-  --margin-red-left: 64px;
-  --btn-font-size: clamp(0.9rem, 2.4vw, 1.02rem);
+  --canvas-padding-y: clamp(8px, 1.6vh, 18px);
+  --canvas-padding-bottom: clamp(8px, 1.6vh, 18px);
+  --canvas-padding-x: clamp(8px, 2.2vw, 24px);
+  --app-gap: clamp(8px, 1.4vh, 16px);
+  --title-size: clamp(1.2rem, 3.2vw, 1.75rem);
+  --subtitle-size: clamp(0.75rem, 1.8vw, 0.88rem);
+  --label-heading-size: clamp(0.94rem, 2.2vw, 1.1rem);
+  --number-size: clamp(1.15rem, 2.8vw, 1.45rem);
+  --input-font-size: clamp(1rem, 2vw, 1.08rem); /* >= 16px to prevent iOS auto-zoom */
+  --line-height-textarea: 30px;
+  --notepad-left-pad: 76px;
+  --margin-red-left: 56px;
+  --btn-font-size: clamp(0.86rem, 2vw, 0.98rem);
 
   /* Shadows for Realistic Paper Elevation */
   --paper-shadow: 
@@ -73,13 +74,16 @@
 }
 
 /* ==========================================================================
-   Base & Reset
+   Base & Reset: Strictly Zero Outer Scroll Across All Screen Sizes
    ========================================================================== */
 
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   box-sizing: border-box;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 *, *::before, *::after {
@@ -93,24 +97,29 @@ body.pen-paper-theme {
   background: var(--desk-bg);
   background: var(--desk-gradient);
   color: var(--ink-primary);
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+  height: 100dvh;
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
   width: 100%;
-  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
 /* Desk backdrop canvas with fine grain */
 .desk-canvas {
   position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   width: 100%;
-  padding: var(--canvas-padding-y) var(--canvas-padding-x) clamp(20px, 4vw, 50px);
+  padding: var(--canvas-padding-y) var(--canvas-padding-x) var(--canvas-padding-bottom);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .desk-wood-vignette {
@@ -128,12 +137,15 @@ body.pen-paper-theme {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 1180px;
+  max-width: 1080px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: var(--app-gap);
   flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* ==========================================================================
@@ -292,22 +304,28 @@ body.pen-paper-theme {
 
 .notepad-layout-wrapper {
   display: flex;
-  align-items: flex-start;
-  gap: 26px;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   width: 100%;
+  overflow: hidden;
 }
 
 .notepad-container {
   position: relative;
   flex: 1;
-  min-width: 0;
-  margin-top: 10px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: clamp(8px, 1.4vh, 14px);
+  overflow: visible;
 }
 
 /* Brass Bulldog Binder Clip on Top */
 .brass-binder-clip {
   position: absolute;
-  top: -18px;
+  top: -14px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
@@ -605,17 +623,20 @@ body.pen-paper-theme {
   border-radius: 8px;
   box-shadow: var(--paper-shadow);
   padding: 0;
-  min-height: clamp(480px, 60vh, 580px);
-  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   width: 100%;
 }
 
 /* Binding Bar at Top */
 .notepad-binding-bar {
+  flex-shrink: 0;
   background: linear-gradient(180deg, #333a42 0%, #202429 100%);
-  height: clamp(32px, 4.5vw, 38px);
+  height: clamp(22px, 2.8vh, 32px);
   position: relative;
   border-bottom: 2px solid #14171a;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 3px 6px rgba(0, 0, 0, 0.2);
@@ -661,7 +682,7 @@ body.pen-paper-theme {
 /* Red Notebook Margin (classic left margin rule) */
 .notepad-red-margin {
   position: absolute;
-  top: clamp(32px, 4.5vw, 38px);
+  top: clamp(22px, 2.8vh, 32px);
   bottom: 0;
   left: var(--margin-red-left);
   width: 2px;
@@ -676,10 +697,14 @@ body.pen-paper-theme {
 .notepad-content {
   position: relative;
   z-index: 2;
-  padding: clamp(18px, 3.2vw, 36px) clamp(10px, 2.5vw, 36px) clamp(16px, 2.5vw, 32px) var(--notepad-left-pad);
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: clamp(14px, 2.2vw, 24px);
+  padding: clamp(10px, 1.8vh, 18px) clamp(10px, 2.5vw, 32px) 0 var(--notepad-left-pad);
+  gap: 0;
   transition: padding var(--transition-smooth);
   width: 100%;
 }
@@ -830,24 +855,39 @@ body.pen-paper-theme {
 }
 
 /* ==========================================================================
-   Internal Form Scroll Container (Hidden Scrollbar)
+   Internal Form Scroll Container: The ONLY Scrollable Viewport on Screen
    ========================================================================== */
 
 .form-scroll-container {
-  max-height: clamp(360px, calc(100vh - 280px), 640px);
+  flex: 1;
   min-height: 0;
+  max-height: none !important;
   overflow-y: auto;
   overscroll-behavior: contain;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-  padding-right: clamp(4px, 1vw, 8px);
-  padding-bottom: 8px;
+  padding-right: clamp(6px, 1.2vw, 12px);
+  padding-bottom: clamp(10px, 1.8vh, 18px);
+  padding-top: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 83, 9, 0.32) transparent;
 }
 
 .form-scroll-container::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  width: 6px;
+}
+
+.form-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.form-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(180, 83, 9, 0.25);
+  border-radius: 6px;
+}
+
+.form-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(180, 83, 9, 0.5);
 }
 
 /* ==========================================================================
@@ -1392,18 +1432,20 @@ body.pen-paper-theme {
    ========================================================================== */
 
 .notepad-sticky-actions {
-  position: sticky;
+  flex-shrink: 0;
+  position: relative;
   bottom: 0;
   z-index: 15;
-  background: linear-gradient(180deg, rgba(255, 253, 250, 0.78) 0%, rgba(255, 253, 250, 0.98) 28%, #fffdfa 100%);
+  background: linear-gradient(180deg, rgba(255, 253, 250, 0.88) 0%, rgba(255, 253, 250, 0.98) 28%, #fffdfa 100%);
   border-top: 1.5px dashed #ded4c3;
-  padding: clamp(10px, 2.2vw, 16px) clamp(4px, 1vw, 8px) clamp(6px, 1.2vw, 8px);
-  margin-top: 6px;
+  padding: clamp(8px, 1.4vh, 12px) clamp(4px, 1vw, 8px) clamp(8px, 1.4vh, 12px);
+  margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 1.6vw, 12px);
+  gap: clamp(4px, 1vh, 8px);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 -4px 12px rgba(60, 40, 20, 0.04);
 }
 
 .action-buttons-group {
@@ -1417,9 +1459,9 @@ body.pen-paper-theme {
 .wax-seal-btn {
   flex: 1 1 280px;
   background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%);
-  border: 2px solid #3b82f6;
+  border: 1.5px solid #3b82f6;
   border-radius: 12px;
-  padding: clamp(12px, 2.2vw, 15px) clamp(16px, 3.5vw, 28px);
+  padding: clamp(11px, 2vw, 14px) clamp(16px, 3vw, 28px);
   color: #ffffff;
   font-family: var(--font-sans);
   font-size: var(--btn-font-size);
@@ -1439,6 +1481,7 @@ body.pen-paper-theme {
 
 .wax-seal-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  border-color: #60a5fa;
   box-shadow: var(--button-hover-shadow);
   transform: translateY(-2px);
 }
@@ -1455,7 +1498,24 @@ body.pen-paper-theme {
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
-  filter: grayscale(0.4);
+  filter: none;
+}
+
+.send-icon-svg {
+  width: clamp(17px, 2.2vw, 20px);
+  height: clamp(17px, 2.2vw, 20px);
+  flex-shrink: 0;
+  stroke: #93c5fd;
+  transition: transform var(--transition-smooth);
+}
+
+.wax-seal-btn:hover:not(:disabled) .send-icon-svg {
+  transform: translate(2px, -2px);
+  stroke: #ffffff;
+}
+
+.wax-seal-btn:disabled .send-icon-svg {
+  stroke: #a39785;
 }
 
 .open-sheet-btn {
@@ -1463,40 +1523,45 @@ body.pen-paper-theme {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(6px, 1.4vw, 10px);
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border: 2px solid #fbbf24;
+  gap: clamp(7px, 1.4vw, 10px);
+  background: #ffffff;
+  border: 1.5px solid #10b981;
   border-radius: 12px;
-  padding: clamp(12px, 2.2vw, 14px) clamp(14px, 2.8vw, 22px);
-  color: #78350f;
+  padding: clamp(11px, 2vw, 14px) clamp(16px, 2.8vw, 24px);
+  color: #065f46;
   font-family: var(--font-sans);
   font-size: var(--btn-font-size);
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(180, 83, 9, 0.14), inset 0 1px 0 #ffffff;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12), inset 0 1px 0 #ffffff;
   transition: all var(--transition-smooth);
   white-space: nowrap;
   min-width: 0;
 }
 
 .open-sheet-btn:hover {
-  background: linear-gradient(135deg, #ffffff 0%, #fde68a 100%);
-  border-color: #d97706;
-  color: #451a03;
+  background: #f0fdf4;
+  border-color: #059669;
+  color: #047857;
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(180, 83, 9, 0.25);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.22);
 }
 
 .open-sheet-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.18);
+  box-shadow: 0 2px 5px rgba(16, 185, 129, 0.18);
 }
 
 .gsheet-icon-svg {
-  width: clamp(18px, 3.5vw, 22px);
-  height: clamp(18px, 3.5vw, 22px);
+  width: clamp(18px, 3.2vw, 22px);
+  height: clamp(18px, 3.2vw, 22px);
   flex-shrink: 0;
+}
+
+.open-sheet-btn .gsheet-icon-svg rect {
+  fill: #107c41;
+  stroke: #0b6a37;
 }
 
 .sheet-btn-label {
@@ -1504,37 +1569,18 @@ body.pen-paper-theme {
 }
 
 .external-link-svg {
-  width: clamp(13px, 2.2vw, 15px);
-  height: clamp(13px, 2.2vw, 15px);
-  opacity: 0.75;
+  width: clamp(13px, 2vw, 15px);
+  height: clamp(13px, 2vw, 15px);
+  stroke: #059669;
+  opacity: 0.85;
   transition: transform var(--transition-smooth);
+  flex-shrink: 0;
 }
 
 .open-sheet-btn:hover .external-link-svg {
   transform: translate(2px, -2px);
   opacity: 1;
-}
-
-.open-sheet-btn .gsheet-icon-svg rect {
-  fill: #d97706;
-  stroke: #b45309;
-}
-
-.seal-icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.wax-seal-svg {
-  width: clamp(20px, 3.8vw, 24px);
-  height: clamp(20px, 3.8vw, 24px);
-  stroke: #93c5fd;
-}
-
-.wax-seal-btn:disabled .wax-seal-svg {
-  stroke: #b8ac9b;
+  stroke: #047857;
 }
 
 .seal-btn-label {
@@ -1688,27 +1734,16 @@ body.pen-paper-theme {
    Comprehensive Responsive System (All Screens: Desktop, Tablet, Mobile)
    ========================================================================== */
 
-/* Laptops & Mid Desktops (<= 960px) */
-@media (max-width: 960px) {
+/* Laptops & Mid Desktops (<= 1024px) */
+@media (max-width: 1024px) {
   :root {
-    --notepad-left-pad: 68px;
-    --margin-red-left: 50px;
+    --notepad-left-pad: 64px;
+    --margin-red-left: 46px;
+    --canvas-padding-x: clamp(8px, 2vw, 16px);
   }
 
-  .notepad-layout-wrapper {
-    flex-direction: column;
-  }
-
-  .desk-accessories {
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    padding-top: 0;
-  }
-
-  .sticky-note, .desk-card-companion {
-    flex: 1 1 280px;
-    transform: none !important;
+  .app-layout {
+    max-width: 960px;
   }
 }
 
@@ -1727,7 +1762,6 @@ body.pen-paper-theme {
     height: 100% !important;
     height: 100dvh !important;
     overflow: hidden !important;
-    position: fixed !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -1738,7 +1772,7 @@ body.pen-paper-theme {
     height: 100dvh !important;
     max-height: 100dvh !important;
     overflow: hidden !important;
-    padding: 6px 6px 0 !important;
+    padding: 6px 6px 6px !important;
     display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;
@@ -1824,7 +1858,7 @@ body.pen-paper-theme {
     display: flex;
     flex-direction: column;
     margin-top: 10px;
-    overflow: hidden;
+    overflow: visible;
     position: relative;
     width: 100%;
   }
@@ -2021,14 +2055,10 @@ body.pen-paper-theme {
     box-sizing: border-box;
   }
 
-  .wax-seal-svg {
-    width: 15px;
-    height: 15px;
+  .send-icon-svg {
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
-  }
-
-  .feather-arrow-svg {
-    display: none;
   }
 
   .open-sheet-btn {
@@ -2044,6 +2074,9 @@ body.pen-paper-theme {
     min-height: 36px;
     border-width: 1.5px;
     box-sizing: border-box;
+    background: #ffffff;
+    border-color: #10b981;
+    color: #065f46;
   }
 
   .gsheet-icon-svg {
@@ -2102,7 +2135,7 @@ body.pen-paper-theme {
   }
 
   .desk-canvas {
-    padding: 4px 4px 0 !important;
+    padding: 4px 4px 4px !important;
   }
 
   .pen-emblem-badge {
@@ -2134,7 +2167,7 @@ body.pen-paper-theme {
     min-height: 34px;
   }
 
-  .wax-seal-svg, .gsheet-icon-svg {
+  .send-icon-svg, .gsheet-icon-svg {
     width: 13px;
     height: 13px;
   }
@@ -2174,28 +2207,77 @@ body.pen-paper-theme {
     min-height: 32px;
   }
 
-  .wax-seal-svg, .gsheet-icon-svg {
+  .send-icon-svg, .gsheet-icon-svg {
     width: 12px;
     height: 12px;
   }
 }
 
-/* Mobile Landscape (Short Viewports) */
-@media (max-height: 500px) and (orientation: landscape) {
+/* Short Viewports (Laptops with smaller screens, split-screen desktop windows) */
+@media (max-height: 620px) {
+  :root {
+    --canvas-padding-y: 4px;
+    --canvas-padding-bottom: 4px;
+    --app-gap: 4px;
+  }
+
+  .brass-binder-clip {
+    transform: translateX(-50%) scale(0.62);
+    top: -10px;
+  }
+
+  .notepad-container {
+    margin-top: 6px;
+  }
+
+  .paper-ruled-textarea {
+    min-height: 58px;
+  }
+}
+
+/* Ultra-Short Viewports / Mobile Landscape (height <= 480px) */
+@media (max-height: 480px) {
+  :root {
+    --canvas-padding-y: 2px;
+    --canvas-padding-bottom: 2px;
+    --app-gap: 3px;
+  }
+
   .brass-binder-clip {
     display: none;
   }
 
+  .notepad-container {
+    margin-top: 2px;
+  }
+
+  .notepad-binding-bar {
+    height: 16px;
+  }
+
+  .binding-stitches {
+    top: 4px;
+  }
+
   .journal-header {
-    padding: 1px 2px;
+    padding: 0 2px;
   }
 
   .pen-emblem-badge {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
+  }
+
+  .pen-nib-svg {
+    width: 16px;
+    height: 16px;
   }
 
   .paper-ruled-textarea {
-    min-height: 52px;
+    min-height: 48px;
+  }
+
+  .paper-shortcut-guide {
+    display: none;
   }
 }

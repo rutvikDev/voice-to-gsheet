@@ -652,12 +652,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  const sa = getServiceAccountCredentials();
   console.log(`🚀 Voice to Google Sheet app running at http://localhost:${PORT}`);
-  console.log(`📊 Target Sheet: https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=0`);
-  if (sa) {
-    console.log(`🛡️ Service Account configured: ${sa.clientEmail}`);
-  } else {
-    console.log(`⚠️ Waiting for Service Account JSON or credentials`);
-  }
 });

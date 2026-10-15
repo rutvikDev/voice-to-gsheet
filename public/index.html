@@ -321,7 +321,8 @@
                         <span class="handwritten-number">7.</span>
                         <span class="label-heading">Owner Description</span>
                       </label>
-                      <div class="corner-mic-badge" id="micBadge_ownerDescription" title="Recording active on Owner Description">
+                      <div class="corner-mic-badge" id="micBadge_ownerDescription"
+                        title="Recording active on Owner Description">
                         <span class="live-dot"></span>
 
                         <span class="rec-label">Recording</span>
@@ -361,43 +362,32 @@
               <!-- Sticky Notepad Bottom Actions Bar (Pinned at bottom regardless of scroll) -->
               <div class="notepad-sticky-actions">
                 <div class="action-buttons-group">
-                  <!-- SUBMIT / WAX SEAL BUTTON -->
+                  <!-- SEND TO GOOGLE SHEET BUTTON -->
                   <button type="button" id="submitBtn" class="wax-seal-btn" disabled>
-                    <!-- Wax Seal Emblem SVG -->
-                    <div class="seal-icon-wrapper">
-                    </div>
-
-                    <span id="submitBtnText" class="seal-btn-label">Submit</span>
-
-                    <svg class="feather-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="5" y1="12" x2="19" y2="12"></line>
-                      <polyline points="12 5 19 12 12 19"></polyline>
+                    <svg class="send-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13"></line>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                     </svg>
+
+                    <span id="submitBtnText" class="seal-btn-label">Send to Google Sheet</span>
 
                     <span class="btn-spinner hidden" id="btnSpinner" aria-hidden="true"></span>
                   </button>
 
-                  <!-- REDIRECT TO GSHEET BUTTON -->
+                  <!-- OPEN GOOGLE SHEET BUTTON -->
                   <a href="https://docs.google.com/spreadsheets/d/1PETlMXFGuKl7-n84yRwuYbKS5xrPl79ykV9FyfzprYk/edit#gid=0"
                     target="_blank" rel="noopener noreferrer" id="openSheetBtn" class="open-sheet-btn"
                     title="Open connected Google Sheet in new tab">
                     <!-- Google Sheets grid SVG icon -->
-                    <svg class="gsheet-icon-svg" viewBox="0 0 24 24" fill="none">
-                      <rect x="3" y="3" width="18" height="18" rx="2.5" fill="#107c41" stroke="#0b6a37"
-                        stroke-width="1.2" />
-                      <line x1="3" y1="9" x2="21" y2="9" stroke="#ffffff" stroke-width="1.2" opacity="0.9" />
-                      <line x1="3" y1="15" x2="21" y2="15" stroke="#ffffff" stroke-width="1.2" opacity="0.9" />
-                      <line x1="9" y1="3" x2="9" y2="21" stroke="#ffffff" stroke-width="1.2" opacity="0.9" />
-                      <line x1="15" y1="3" x2="15" y2="21" stroke="#ffffff" stroke-width="1.2" opacity="0.9" />
-                    </svg>
-                    <span class="sheet-btn-label">View GSheet</span>
+
+                    <span class="sheet-btn-label">Open Google Sheet</span>
                   </a>
                 </div>
 
                 <div class="paper-shortcut-guide">
                   <span class="shortcut-pen">⚡</span>
-                  <span class="shortcut-desktop">Quick Seal: Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to save. </span>
+                  <span class="shortcut-desktop">Quick Send: Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send. </span>
                   <span class="shortcut-hint">Tap or click any field to speak or write.</span>
                 </div>
               </div>
@@ -406,8 +396,8 @@
               <div id="toastMessage" class="toast-banner hidden" role="alert" aria-live="assertive">
                 <div class="toast-wax-seal" id="toastIcon"></div>
                 <div class="toast-body">
-                  <div id="toastTitle" class="toast-title">Story Inked Successfully!</div>
-                  <div id="toastSubtitle" class="toast-subtitle">Row appended to Google Sheet.</div>
+                  <div id="toastTitle" class="toast-title">Data Sent to Google Sheet!</div>
+                  <div id="toastSubtitle" class="toast-subtitle">Row appended successfully to Google Sheet.</div>
                 </div>
                 <button id="toastCloseBtn" class="toast-close" aria-label="Close notification">&times;</button>
               </div>
