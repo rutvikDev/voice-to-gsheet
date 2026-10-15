@@ -1733,6 +1733,104 @@ body.pen-paper-theme {
 }
 
 /* ==========================================================================
+   Continuous 93 Fields Flow & Field Search Bar
+   ========================================================================== */
+
+.field-search-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  background: linear-gradient(135deg, rgba(254, 252, 248, 0.95) 0%, rgba(250, 246, 237, 0.9) 100%);
+  border: 1.5px solid #e2d7c5;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(43, 35, 25, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-icon-svg {
+  color: var(--ink-accent);
+  flex-shrink: 0;
+}
+
+.field-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--ink-primary);
+  min-width: 0;
+}
+
+.field-search-input::placeholder {
+  color: var(--ink-muted);
+  font-style: italic;
+  font-size: 0.84rem;
+}
+
+.clear-search-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--ink-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color var(--transition-fast);
+}
+
+.clear-search-btn:hover {
+  color: var(--ink-accent);
+}
+
+.field-count-pill {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-accent);
+  background: rgba(180, 83, 9, 0.08);
+  border: 1px solid rgba(180, 83, 9, 0.18);
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.all-fields-flow {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2.5vw, 24px);
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .field-search-bar {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .field-count-pill {
+    font-size: 0.65rem;
+    padding: 2px 7px;
+  }
+}
+
+/* ==========================================================================
    Footer
    ========================================================================== */
 

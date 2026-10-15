@@ -62,7 +62,7 @@
       <!-- Main Workspace: The Storyteller's Legal Pad & Desk Accessories -->
       <div class="notepad-layout-wrapper">
 
-        <!-- Left: The Storyteller's Legal Pad -->
+        <!-- The Storyteller's Legal Pad -->
         <div class="notepad-container">
           <!-- Brass Bulldog Binder Clip on top of pad -->
           <div class="brass-binder-clip" aria-hidden="true">
@@ -88,273 +88,30 @@
             <!-- Sheet Content Inner -->
             <div class="notepad-content">
 
+              <!-- Quick Field Finder / Search Bar -->
+              <div class="field-search-bar" id="fieldSearchBar">
+                <div class="search-input-wrapper">
+                  <svg class="search-icon-svg" viewBox="0 0 24 24" width="16" height="16" fill="none"
+                    stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input type="text" id="fieldSearchInput" class="field-search-input"
+                    placeholder="Quick jump or filter across all 93 fields (e.g. Plan, Budget, Story, Room)..."
+                    autocomplete="off" spellcheck="false" />
+                  <button type="button" id="clearSearchBtn" class="clear-search-btn hidden" title="Clear filter"
+                    aria-label="Clear filter">&times;</button>
+                </div>
+                <div class="field-count-pill" id="fieldCountPill">
+                  <span id="visibleFieldCount">93</span> of 93 fields
+                </div>
+              </div>
+
               <!-- Form Scroll Container (Internal scrollable viewport with hidden scrollbar) -->
               <div class="form-scroll-container" id="formScrollContainer">
-                <!-- The Story Form -->
+                <!-- The Story Form: All 93 fields in one continuous, uncategorized list -->
                 <form id="storyForm" onsubmit="return false;" class="story-form">
-
-                  <!-- FIELD 1: Story Title -->
-                  <section class="notepad-row">
-                    <div class="row-header">
-                      <label for="storyTitleInput" class="ruled-label">
-                        <span class="handwritten-number">1.</span>
-                        <span class="label-heading">Story Title</span>
-                      </label>
-                      <div class="corner-mic-badge" id="micBadge_storyTitle" title="Recording active on Story Title">
-                        <span class="live-dot"></span>
-                        <span class="rec-label">Recording</span>
-                      </div>
-                    </div>
-
-                    <div class="paper-input-container field-single-line" id="storyTitleWrapper">
-                      <input type="text" id="storyTitleInput" class="paper-text-input"
-                        placeholder="e.g. The Highland Victorian Revival" autocomplete="off" spellcheck="true"
-                        aria-required="true" />
-                      <div class="input-actions-right">
-                        <button type="button" id="clearStoryTitleBtn" class="paper-action-btn clear-btn hidden"
-                          title="Erase title" aria-label="Clear story title">
-                          <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </section>
-
-                  <!-- FIELD 2: Story Sub Heading -->
-                  <section class="notepad-row">
-                    <div class="row-header">
-                      <label for="storySubHeadingInput" class="ruled-label">
-                        <span class="handwritten-number">2.</span>
-                        <span class="label-heading">Story Sub Heading</span>
-                      </label>
-                      <div class="corner-mic-badge" id="micBadge_storySubHeading"
-                        title="Recording active on Story Sub Heading">
-                        <span class="live-dot"></span>
-
-                        <span class="rec-label">Recording</span>
-                      </div>
-                    </div>
-
-                    <div class="paper-input-container field-single-line" id="storySubHeadingWrapper">
-                      <input type="text" id="storySubHeadingInput" class="paper-text-input"
-                        placeholder="e.g. From cramped vintage kitchen to sunlit culinary oasis" autocomplete="off"
-                        spellcheck="true" />
-                      <div class="input-actions-right">
-                        <button type="button" id="clearStorySubHeadingBtn" class="paper-action-btn clear-btn hidden"
-                          title="Erase sub heading" aria-label="Clear story sub heading">
-                          <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </section>
-
-                  <!-- FIELD 3: Story Description -->
-                  <section class="notepad-row">
-                    <div class="row-header">
-                      <label for="storyDescInput" class="ruled-label">
-                        <span class="handwritten-number">3.</span>
-                        <span class="label-heading">Story Description</span>
-                      </label>
-                      <div class="corner-mic-badge" id="micBadge_storyDescription"
-                        title="Recording active on Story Description">
-                        <span class="live-dot"></span>
-
-                        <span class="rec-label">Recording</span>
-                      </div>
-                    </div>
-
-                    <div class="paper-input-container field-multi-line" id="storyDescWrapper">
-                      <textarea id="storyDescInput" class="paper-ruled-textarea"
-                        placeholder="Speak or write the background narrative... Built in 1928, this historic home had good bones but needed modern energy for an active family of four..."
-                        rows="4" spellcheck="true"></textarea>
-                      <div class="input-actions-right desc-actions">
-                        <button type="button" id="clearStoryDescBtn" class="paper-action-btn clear-btn hidden"
-                          title="Erase description" aria-label="Clear story description">
-                          <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    <!--div class="manuscript-meta-row">
-                      <div class="meta-stats">
-                        <span class="quill-count-icon">🖋️</span>
-                        <span id="storyDescWordCount" class="stat-pill">0 words</span>
-                        <span class="meta-separator">&bull;</span>
-                        <span id="storyDescCharCount" class="stat-pill">0 characters</span>
-                      </div>
-                    </div-->
-                  </section>
-
-                  <!-- FIELD 4: Challenge Description -->
-                  <section class="notepad-row">
-                    <div class="row-header">
-                      <label for="challengeDescInput" class="ruled-label">
-                        <span class="handwritten-number">4.</span>
-                        <span class="label-heading">Challenge Description</span>
-                      </label>
-                      <div class="corner-mic-badge" id="micBadge_challengeDescription"
-                        title="Recording active on Challenge Description">
-                        <span class="live-dot"></span>
-
-                        <span class="rec-label">Recording</span>
-                      </div>
-                    </div>
-
-                    <div class="paper-input-container field-multi-line" id="challengeDescWrapper">
-                      <textarea id="challengeDescInput" class="paper-ruled-textarea"
-                        placeholder="Speak the challenges... Cramped galley layout, load-bearing walls blocking natural daylight, sagging joists, and poor insulation..."
-                        rows="4" spellcheck="true"></textarea>
-                      <div class="input-actions-right desc-actions">
-                        <button type="button" id="clearChallengeDescBtn" class="paper-action-btn clear-btn hidden"
-                          title="Erase challenge description" aria-label="Clear challenge description">
-                          <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    <!--div class="manuscript-meta-row">
-                      <div class="meta-stats">
-                        <span class="quill-count-icon">🖋️</span>
-                        <span id="challengeDescWordCount" class="stat-pill">0 words</span>
-                        <span class="meta-separator">&bull;</span>
-                        <span id="challengeDescCharCount" class="stat-pill">0 characters</span>
-                      </div>
-                    </div-->
-                  </section>
-
-                  <!-- FIELD 5: Plan Description -->
-                  <section class="notepad-row">
-                    <div class="row-header">
-                      <label for="planDescInput" class="ruled-label">
-                        <span class="handwritten-number">5.</span>
-                        <span class="label-heading">Plan Description</span>
-                      </label>
-                      <div class="corner-mic-badge" id="micBadge_planDescription"
-                        title="Recording active on Plan Description">
-                        <span class="live-dot"></span>
-
-                        <span class="rec-label">Recording</span>
-                      </div>
-                    </div>
-
-                    <div class="paper-input-container field-multi-line" id="planDescWrapper">
-                      <textarea id="planDescInput" class="paper-ruled-textarea"
-                        placeholder="Speak the design solutions... Open the sightlines with recessed steel beams, introduce double skylights, design a central walnut island with butcher block..."
-                        rows="4" spellcheck="true"></textarea>
-                      <div class="input-actions-right desc-actions">
-                        <button type="button" id="clearPlanDescBtn" class="paper-action-btn clear-btn hidden"
-                          title="Erase plan description" aria-label="Clear plan description">
-                          <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    <!--div class="manuscript-meta-row">
-                      <div class="meta-stats">
-                        <span class="quill-count-icon">🖋️</span>
-                        <span id="planDescWordCount" class="stat-pill">0 words</span>
-                        <span class="meta-separator">&bull;</span>
-                        <span id="planDescCharCount" class="stat-pill">0 characters</span>
-                      </div>
-                    </div-->
-                  </section>
-
-                  <!-- FIELD 6: Makeover Description -->
-                  <section class="notepad-row">
-                    <div class="row-header">
-                      <label for="makeoverDescInput" class="ruled-label">
-                        <span class="handwritten-number">6.</span>
-                        <span class="label-heading">Makeover Description</span>
-                      </label>
-                      <div class="corner-mic-badge" id="micBadge_makeoverDescription"
-                        title="Recording active on Makeover Description">
-                        <span class="live-dot"></span>
-
-                        <span class="rec-label">Recording</span>
-                      </div>
-                    </div>
-
-                    <div class="paper-input-container field-multi-line" id="makeoverDescWrapper">
-                      <textarea id="makeoverDescInput" class="paper-ruled-textarea"
-                        placeholder="Speak the finished result... A sunlit open floorplan with bespoke fluted millwork, honed marble countertops, unlacquered brass hardware, and floor-to-ceiling glass patio sliders..."
-                        rows="4" spellcheck="true"></textarea>
-                      <div class="input-actions-right desc-actions">
-                        <button type="button" id="clearMakeoverDescBtn" class="paper-action-btn clear-btn hidden"
-                          title="Erase makeover description" aria-label="Clear makeover description">
-                          <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    <!--div class="manuscript-meta-row">
-                      <div class="meta-stats">
-                        <span class="quill-count-icon">🖋️</span>
-                        <span id="makeoverDescWordCount" class="stat-pill">0 words</span>
-                        <span class="meta-separator">&bull;</span>
-                        <span id="makeoverDescCharCount" class="stat-pill">0 characters</span>
-                      </div>
-                    </div-->
-                  </section>
-
-                  <!-- FIELD 7: Owner Description -->
-                  <section class="notepad-row">
-                    <div class="row-header">
-                      <label for="ownerDescInput" class="ruled-label">
-                        <span class="handwritten-number">7.</span>
-                        <span class="label-heading">Owner Description</span>
-                      </label>
-                      <div class="corner-mic-badge" id="micBadge_ownerDescription"
-                        title="Recording active on Owner Description">
-                        <span class="live-dot"></span>
-
-                        <span class="rec-label">Recording</span>
-                      </div>
-                    </div>
-
-                    <div class="paper-input-container field-multi-line" id="ownerDescWrapper">
-                      <textarea id="ownerDescInput" class="paper-ruled-textarea"
-                        placeholder="Speak or write the owner description... The homeowners wanted an open, welcoming environment that celebrates natural light..."
-                        rows="4" spellcheck="true"></textarea>
-                      <div class="input-actions-right desc-actions">
-                        <button type="button" id="clearOwnerDescBtn" class="paper-action-btn clear-btn hidden"
-                          title="Erase owner description" aria-label="Clear owner description">
-                          <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    <!--div class="manuscript-meta-row">
-                      <div class="meta-stats">
-                        <span class="quill-count-icon">🖋️</span>
-                        <span id="ownerDescWordCount" class="stat-pill">0 words</span>
-                        <span class="meta-separator">&bull;</span>
-                        <span id="ownerDescCharCount" class="stat-pill">0 characters</span>
-                      </div>
-                      <div class="meta-guarantee">
-                      </div>
-                    </div-->
-                  </section>
-
+                  <div id="allFieldsContainer" class="all-fields-flow"></div>
                 </form>
               </div> <!-- /.form-scroll-container -->
 
@@ -378,8 +135,6 @@
                   <a href="https://docs.google.com/spreadsheets/d/1PETlMXFGuKl7-n84yRwuYbKS5xrPl79ykV9FyfzprYk/edit#gid=0"
                     target="_blank" rel="noopener noreferrer" id="openSheetBtn" class="open-sheet-btn"
                     title="Open connected Google Sheet in new tab">
-                    <!-- Google Sheets grid SVG icon -->
-
                     <span class="sheet-btn-label">Open Google Sheet</span>
                   </a>
                 </div>
@@ -391,7 +146,7 @@
                 </div>
               </div>
 
-              <!-- Result / Telegram Dispatch Banner -->
+              <!-- Result / Dispatch Banner -->
               <div id="toastMessage" class="toast-banner hidden" role="alert" aria-live="assertive">
                 <div class="toast-wax-seal" id="toastIcon"></div>
                 <div class="toast-body">
@@ -408,7 +163,6 @@
           </main> <!-- /.notepad-sheet -->
         </div> <!-- /.notepad-container -->
       </div> <!-- /.notepad-layout-wrapper -->
-
 
     </div> <!-- /.app-layout -->
   </div> <!-- /.desk-canvas -->

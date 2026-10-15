@@ -1,110 +1,217 @@
 /**
- * Storyteller Studio - Client Application
+ * SpeakStory - Client Application
  * Features:
- * - 7 Core Narrative Case Study Fields (Story, Challenge, Plan, Makeover, Owners)
- * - 100% Reliable Native & Third-Party Speech Engine (ZERO microphone hardware locks)
- * - True Live Character-by-Character Voice Typing (interim + final streaming)
- * - Click-to-record on each field (exclusive single-field recording)
- * - Smooth auto-restart on pause for long descriptions without drops
- * - Direct Google Cloud Service Account sync to Google Sheet
- * - Instant error diagnostics & audio chime feedback
+ * - All 93 fields in one continuous, uncategorized legal pad flow (exact Google Sheet sequence 1 to 93)
+ * - 100% reliable Native Speech Recognition Engine (ZERO getUserMedia mic hardware locks)
+ * - True character-by-character live speech transcription (interim + final streaming)
+ * - Click or focus on any field to speak or write
+ * - Eraser clear button with instant mic re-arming
+ * - Fast in-place field search / jump filter across all 93 fields
+ * - Google Cloud Service Account direct sync to Google Sheets
+ * - Web Audio harmonic feedback chimes
  */
 
-// Dialect configuration (Defaults to en-IN for Indian accent accuracy)
+// Dialect configuration (Defaults to en-IN for Indian English accuracy)
 let selectedDialect = 'en-IN';
 
-// DOM Elements Registry for the 7 Case Study Fields
-const FIELDS = {
-  storyTitle: {
-    id: 'storyTitle',
-    input: document.getElementById('storyTitleInput'),
-    wrapper: document.getElementById('storyTitleWrapper'),
-    clearBtn: document.getElementById('clearStoryTitleBtn'),
-    micBadge: document.getElementById('micBadge_storyTitle'),
-    name: 'Story Title',
-    isMultiLine: false
-  },
-  storySubHeading: {
-    id: 'storySubHeading',
-    input: document.getElementById('storySubHeadingInput'),
-    wrapper: document.getElementById('storySubHeadingWrapper'),
-    clearBtn: document.getElementById('clearStorySubHeadingBtn'),
-    micBadge: document.getElementById('micBadge_storySubHeading'),
-    name: 'Story Sub Heading',
-    isMultiLine: false
-  },
-  storyDescription: {
-    id: 'storyDescription',
-    input: document.getElementById('storyDescInput'),
-    wrapper: document.getElementById('storyDescWrapper'),
-    clearBtn: document.getElementById('clearStoryDescBtn'),
-    micBadge: document.getElementById('micBadge_storyDescription'),
-    charCount: document.getElementById('storyDescCharCount'),
-    wordCount: document.getElementById('storyDescWordCount'),
-    name: 'Story Description',
-    isMultiLine: true
-  },
-  challengeDescription: {
-    id: 'challengeDescription',
-    input: document.getElementById('challengeDescInput'),
-    wrapper: document.getElementById('challengeDescWrapper'),
-    clearBtn: document.getElementById('clearChallengeDescBtn'),
-    micBadge: document.getElementById('micBadge_challengeDescription'),
-    charCount: document.getElementById('challengeDescCharCount'),
-    wordCount: document.getElementById('challengeDescWordCount'),
-    name: 'Challenge Description',
-    isMultiLine: true
-  },
-  planDescription: {
-    id: 'planDescription',
-    input: document.getElementById('planDescInput'),
-    wrapper: document.getElementById('planDescWrapper'),
-    clearBtn: document.getElementById('clearPlanDescBtn'),
-    micBadge: document.getElementById('micBadge_planDescription'),
-    charCount: document.getElementById('planDescCharCount'),
-    wordCount: document.getElementById('planDescWordCount'),
-    name: 'Plan Description',
-    isMultiLine: true
-  },
-  makeoverDescription: {
-    id: 'makeoverDescription',
-    input: document.getElementById('makeoverDescInput'),
-    wrapper: document.getElementById('makeoverDescWrapper'),
-    clearBtn: document.getElementById('clearMakeoverDescBtn'),
-    micBadge: document.getElementById('micBadge_makeoverDescription'),
-    charCount: document.getElementById('makeoverDescCharCount'),
-    wordCount: document.getElementById('makeoverDescWordCount'),
-    name: 'Makeover Description',
-    isMultiLine: true
-  },
-  ownerDescription: {
-    id: 'ownerDescription',
-    input: document.getElementById('ownerDescInput') || document.getElementById('ownerQuotesInput'),
-    wrapper: document.getElementById('ownerDescWrapper') || document.getElementById('ownerQuotesWrapper'),
-    clearBtn: document.getElementById('clearOwnerDescBtn') || document.getElementById('clearOwnerQuotesBtn'),
-    micBadge: document.getElementById('micBadge_ownerDescription') || document.getElementById('micBadge_ownerQuotes'),
-    charCount: document.getElementById('ownerDescCharCount') || document.getElementById('ownerQuotesCharCount'),
-    wordCount: document.getElementById('ownerDescWordCount') || document.getElementById('ownerQuotesWordCount'),
-    name: 'Owner Description',
-    isMultiLine: true
-  }
-};
+// ═══════════════════════════════════════════════════════════════════════════════
+// MASTER 93 FIELDS CONFIGURATION (Exact Google Sheet sequence 1 to 93)
+// Non-media columns matching the user's prompt exactly
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// Backward-compatibility alias for legacy references
-Object.defineProperty(FIELDS, 'ownerQuotes', {
-  get() { return FIELDS.ownerDescription; },
-  enumerable: false,
-  configurable: true
+const FIELDS_CONFIG = [
+  { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. 1 or custom sequential ID' },
+  { key: 'slug', label: 'Slug', type: 'text', placeholder: 'e.g. highland-victorian-revival' },
+  { key: 'status', label: 'Status', type: 'text', placeholder: 'e.g. Draft, Published, Review' },
+  { key: 'categories', label: 'Categories', type: 'text', placeholder: 'e.g. Kitchen, Living Room, Full Home' },
+  { key: 'serviceCategories', label: 'Service Categories', type: 'text', placeholder: 'e.g. Renovation, Architecture' },
+  { key: 'locationAddress', label: 'Location Address', type: 'text', placeholder: 'e.g. 123 Oak Street, Richmond VA' },
+  { key: 'storyId', label: 'Story ID', type: 'text', placeholder: 'Auto-generated or custom story ID' },
+  { key: 'regions', label: 'Regions', type: 'text', placeholder: 'e.g. Northeast, West Coast' },
+  { key: 'topRoomCardsHeading', label: 'Top Room_Cards_Heading', type: 'text', placeholder: 'e.g. Kitchen Transformation' },
+  { key: 'topRoomCardsNumber', label: 'Top Room_Cards_Number', type: 'text', placeholder: 'e.g. 01' },
+  { key: 'topRoomCardsSuffix', label: 'Top Room_Cards_Suffix', type: 'text', placeholder: 'e.g. rooms renovated' },
+  { key: 'topRoomCardsInfo', label: 'Top Room_Cards_Info', type: 'text', placeholder: 'e.g. Complete remodel with custom cabinetry' },
+  { key: 'numberOfEpisodes', label: 'Number Of Episodes', type: 'text', placeholder: 'e.g. 6' },
+  { key: 'storyTitle', label: 'Story Title', type: 'text', placeholder: 'e.g. The Highland Victorian Revival' },
+  { key: 'storySubHeading', label: 'Story sub heading', type: 'text', placeholder: 'e.g. From cramped vintage kitchen to sunlit oasis' },
+  { key: 'storyDescription', label: 'Story Description', type: 'textarea', placeholder: 'Speak or write the background narrative... Built in 1928, this historic home...' },
+  { key: 'timelineDate', label: 'Timeline timeline_date', type: 'text', placeholder: 'e.g. Jan 2024 - Aug 2024' },
+  { key: 'timelineData', label: 'Timeline timeline_data', type: 'textarea', placeholder: 'Speak or write milestone dates and phase descriptions...' },
+  { key: 'rennovationProgress', label: 'Rennovation Progress', type: 'text', placeholder: 'e.g. 75%' },
+  { key: 'startedDate', label: 'Started Date', type: 'text', placeholder: 'e.g. Jan 15, 2024' },
+  { key: 'endDate', label: 'End Date', type: 'text', placeholder: 'e.g. Aug 30, 2024' },
+  { key: 'statusTimeline', label: 'Status', type: 'text', placeholder: 'e.g. In Progress, Completed' },
+  { key: 'location', label: 'Location', type: 'text', placeholder: 'e.g. Richmond, VA' },
+  { key: 'ownerSubHeading', label: 'Owner Sub Heading', type: 'text', placeholder: 'e.g. Meet the Homeowners' },
+  { key: 'ownerHeading', label: 'Owner Heading', type: 'text', placeholder: 'e.g. The Johnson Family' },
+  { key: 'ownerDescription', label: 'Owner Description', type: 'textarea', placeholder: 'Speak or write homeowner story, background, and quotes...' },
+  { key: 'ownersCardsCardHighlight', label: 'Owners Cards_card_highlight', type: 'text', placeholder: 'e.g. First-time renovators' },
+  { key: 'ownersCardsOwnerCardText', label: 'Owners Cards_owner_card_text', type: 'textarea', placeholder: 'Owner card narrative text...' },
+  { key: 'ownersCardsCardBottomText', label: 'Owners Cards_card_bottom_text', type: 'text', placeholder: 'e.g. 15 years in the home' },
+  { key: 'planSubHeading', label: 'Plan Sub Heading', type: 'text', placeholder: 'e.g. The Design Strategy' },
+  { key: 'planHeading', label: 'Plan Heading', type: 'text', placeholder: 'e.g. Modern Open-Concept Vision' },
+  { key: 'planDescription', label: 'Plan Description', type: 'textarea', placeholder: 'Speak or write the design solutions... Open the sightlines with recessed steel beams...' },
+  { key: 'planCardsPlanNumber', label: 'Plan Cards_plan_number', type: 'text', placeholder: 'e.g. 01' },
+  { key: 'planCardsPlanHeading', label: 'Plan Cards_plan_heading', type: 'text', placeholder: 'e.g. Structural Redesign' },
+  { key: 'planCardsPlanText', label: 'Plan Cards_plan_text', type: 'textarea', placeholder: 'Plan card description and strategy notes...' },
+  { key: 'challangeSubHeading', label: 'Challange Sub Heading', type: 'text', placeholder: 'e.g. Key Obstacles' },
+  { key: 'challangeHeading', label: 'Challange Heading', type: 'text', placeholder: 'e.g. Structural & Design Challenges' },
+  { key: 'challengeDescription', label: 'Challange Description', type: 'textarea', placeholder: 'Speak the challenges... Cramped galley layout, load-bearing walls blocking natural daylight...' },
+  { key: 'percentNumber', label: 'Percent Number', type: 'text', placeholder: 'e.g. 85' },
+  { key: 'percentText', label: 'Percent Text', type: 'text', placeholder: 'e.g. of budget allocated to structural work' },
+  { key: 'challangeCardsChallengeCardNumber', label: 'Challange Cards_challenge_card_number', type: 'text', placeholder: 'e.g. 01' },
+  { key: 'challangeCardsCardHeading', label: 'Challange Cards_challange_card_heading', type: 'text', placeholder: 'e.g. Load-Bearing Walls' },
+  { key: 'challangeCardsCardSubHeading', label: 'Challange Cards_challange_card_sub_heading', type: 'text', placeholder: 'e.g. Engineering Required' },
+  { key: 'challangeCardsCardText', label: 'Challange Cards_challange_card_text', type: 'textarea', placeholder: 'Challenge card narrative description...' },
+  { key: 'makeoverHeading', label: 'Makeover Heading', type: 'text', placeholder: 'e.g. Before & After Reveal' },
+  { key: 'makeoverDescription', label: 'Makeover Description', type: 'textarea', placeholder: 'Speak the finished result... A sunlit open floorplan with bespoke fluted millwork...' },
+  { key: 'makeoverCardsMakoverCardHeading', label: 'Makeover Cards_makover_card_heading', type: 'text', placeholder: 'e.g. Kitchen Island' },
+  { key: 'makeoverCardsMakeoverCardText', label: 'Makeover Cards_makerover_card_text', type: 'textarea', placeholder: 'Makeover card description...' },
+  { key: 'featuresTitle', label: 'Features Title', type: 'text', placeholder: 'e.g. Bespoke Millwork & Stone' },
+  { key: 'makeoverFeaturesMakeoverFeature', label: 'Makeover Features_makeover_feature', type: 'textarea', placeholder: 'Transformation feature details...' },
+  { key: 'materialSubHeading', label: 'Material Sub Heading', type: 'text', placeholder: 'e.g. Quality Craftsmanship' },
+  { key: 'materialHeading', label: 'Material Heading', type: 'text', placeholder: 'e.g. Curated Material Selection' },
+  { key: 'materialDescription', label: 'Material Description', type: 'textarea', placeholder: 'Speak or write material specifications...' },
+  { key: 'materialCardsCardTitle', label: 'Material Cards_material_card_title', type: 'text', placeholder: 'e.g. Calacatta Gold Marble' },
+  { key: 'materialCardsCardDescription', label: 'Material Cards_material_card_description', type: 'textarea', placeholder: 'Material details and supplier notes...' },
+  { key: 'budgetRange', label: 'Budget Range', type: 'text', placeholder: 'e.g. $75,000 - $100,000' },
+  { key: 'planningSubHeading', label: 'Planning Sub Heading', type: 'text', placeholder: 'e.g. Cost Breakdown' },
+  { key: 'planningHeading', label: 'Planning Heading', type: 'text', placeholder: 'e.g. Smart Renovation Planning' },
+  { key: 'planningPointsLabel', label: 'Planning Points Points_label', type: 'text', placeholder: 'e.g. Architecture, Labor, Materials' },
+  { key: 'planningPointsValue', label: 'Planning Points Points_value', type: 'text', placeholder: 'e.g. 20%, 45%, 35%' },
+  { key: 'planningDescription', label: 'Planning Description', type: 'textarea', placeholder: 'Planning overview and financial breakdown notes...' },
+  { key: 'whereMoneyWentSubheading', label: 'Where money went subheading', type: 'text', placeholder: 'e.g. Financial Allocation' },
+  { key: 'whereMoneyWentHeading', label: 'Where money went Heading', type: 'text', placeholder: 'e.g. Budget Distribution' },
+  { key: 'whereMoneyWentDescription', label: 'Where money went Description', type: 'textarea', placeholder: 'Details on where the budget was spent...' },
+  { key: 'moneyProgressBarsTitle', label: 'Money Progress Bars_progress_title', type: 'text', placeholder: 'e.g. Cabinetry, Flooring, Plumbing' },
+  { key: 'moneyProgressBarsValue', label: 'Money Progress Bars_progress_value', type: 'text', placeholder: 'e.g. 35, 25, 20' },
+  { key: 'projectBandRange', label: 'Project band range', type: 'text', placeholder: 'e.g. Mid-to-High Range' },
+  { key: 'projectBandText', label: 'Project band text', type: 'text', placeholder: 'e.g. Premium Architectural Renovation' },
+  { key: 'projectBandSubHeading', label: 'Project band sub heading', type: 'text', placeholder: 'e.g. Value-focused investment' },
+  { key: 'projectBandPercentage', label: 'Project band percentage', type: 'text', placeholder: 'e.g. 92%' },
+  { key: 'projectMediaSubHeading', label: 'Project Media Sub Heading', type: 'text', placeholder: 'e.g. Visual Gallery' },
+  { key: 'projectMediaHeading', label: 'Project Media Heading', type: 'text', placeholder: 'e.g. Project Documentation' },
+  { key: 'projectMediaDescription', label: 'Project Media Description', type: 'textarea', placeholder: 'Media gallery overview description...' },
+  { key: 'firstImageCaption', label: 'First Image Caption', type: 'text', placeholder: 'e.g. Front façade after restoration' },
+  { key: 'secondImageCaption', label: 'Second Image Caption', type: 'text', placeholder: 'e.g. Open-plan kitchen and dining area' },
+  { key: 'thirdImageCaption', label: 'Third Image Caption', type: 'text', placeholder: 'e.g. Custom walnut millwork detail' },
+  { key: 'projectMediaCaption', label: 'Project Media_project_media_caption', type: 'text', placeholder: 'e.g. Architectural overview photograph' },
+  { key: 'roomCardsImageCaption', label: 'Room Cards_room_card_image_caption', type: 'text', placeholder: 'e.g. Master suite bay window view' },
+  { key: 'roomCardsSubTitle', label: 'Room Cards_room_card_sub_title', type: 'text', placeholder: 'e.g. Primary Suite' },
+  { key: 'roomCardsTitle', label: 'Room Cards_room_card_title', type: 'text', placeholder: 'e.g. Master Bedroom & Bath' },
+  { key: 'roomCardsDescription', label: 'Room Cards_room_card_description', type: 'textarea', placeholder: 'Room card narrative description...' },
+  { key: 'roomCardsFeatures', label: 'Room Cards_room_card_features', type: 'textarea', placeholder: 'e.g. Custom closet, radiant heated floors, soak tub' },
+  { key: 'mapAddress', label: 'Map Address', type: 'text', placeholder: 'e.g. 452 Elmwood Terrace, Richmond, VA' },
+  { key: 'mapSubHeading', label: 'Map Sub Heading', type: 'text', placeholder: 'e.g. Project Location' },
+  { key: 'mapHeading', label: 'Map Heading', type: 'text', placeholder: 'e.g. Neighborhood Context' },
+  { key: 'mapDescription', label: 'Map Description', type: 'textarea', placeholder: 'Location and neighborhood notes...' },
+  { key: 'mapPointsMapPoint', label: 'Map Points_map_point', type: 'text', placeholder: 'e.g. Walking distance to Carytown & parks' },
+  { key: 'reviewHeading', label: 'Review Heading', type: 'text', placeholder: 'e.g. Client Feedback' },
+  { key: 'storyReviewsText', label: 'Story Reviews_reviews_text', type: 'textarea', placeholder: 'Speak or write client review testimonial...' },
+  { key: 'storyReviewsFooterText', label: 'Story Reviews_review_footer_text', type: 'text', placeholder: 'e.g. Verified Homeowner, Richmond VA' },
+  { key: 'storyReviewsInitials', label: 'Story Reviews_review_initials', type: 'text', placeholder: 'e.g. M.J.' },
+  { key: 'storyReviewsStarRating', label: 'Story Reviews_review_star_rating', type: 'text', placeholder: 'e.g. 5' },
+  { key: 'contactInfo', label: 'contact_info', type: 'textarea', placeholder: 'Contact information, phone, email, inquiries...' }
+];
+
+// Mapping from JS field key to exact Google Sheet column header
+const FIELD_TO_HEADER_MAP = {};
+FIELDS_CONFIG.forEach((f) => {
+  FIELD_TO_HEADER_MAP[f.key] = f.label;
 });
+
+// Central Registry of all 93 fields and their DOM elements
+const FIELDS = {};
+
+/**
+ * Dynamically build all 93 fields into #allFieldsContainer in one continuous flow
+ */
+function buildAllFields() {
+  const container = document.getElementById('allFieldsContainer');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  FIELDS_CONFIG.forEach((fieldDef, index) => {
+    const fieldNum = index + 1;
+    const fieldKey = fieldDef.key;
+    const isMultiLine = fieldDef.type === 'textarea';
+
+    const inputId = `${fieldKey}Input`;
+    const wrapperId = `${fieldKey}Wrapper`;
+    const clearBtnId = `clear${fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1)}Btn`;
+    const micBadgeId = `micBadge_${fieldKey}`;
+
+    const row = document.createElement('section');
+    row.className = 'notepad-row';
+    row.dataset.fieldIndex = fieldNum;
+    row.dataset.fieldKey = fieldKey;
+    row.dataset.fieldLabel = fieldDef.label.toLowerCase();
+
+    row.innerHTML = `
+      <div class="row-header">
+        <label for="${inputId}" class="ruled-label">
+          <span class="handwritten-number">${fieldNum}.</span>
+          <span class="label-heading">${fieldDef.label}</span>
+        </label>
+        <div class="corner-mic-badge" id="${micBadgeId}" title="Recording active on ${fieldDef.label}">
+          <span class="live-dot"></span>
+          <span class="rec-label">Recording</span>
+        </div>
+      </div>
+
+      <div class="paper-input-container ${isMultiLine ? 'field-multi-line' : 'field-single-line'}" id="${wrapperId}">
+        ${isMultiLine ? `
+          <textarea id="${inputId}" class="paper-ruled-textarea"
+            placeholder="${fieldDef.placeholder}" rows="3" spellcheck="true"></textarea>
+        ` : `
+          <input type="text" id="${inputId}" class="paper-text-input"
+            placeholder="${fieldDef.placeholder}" autocomplete="off" spellcheck="true" />
+        `}
+        <div class="input-actions-right ${isMultiLine ? 'desc-actions' : ''}">
+          <button type="button" id="${clearBtnId}" class="paper-action-btn clear-btn hidden"
+            title="Erase ${fieldDef.label}" aria-label="Clear ${fieldDef.label}">
+            <svg class="eraser-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(row);
+
+    // Register in central FIELDS dictionary
+    FIELDS[fieldKey] = {
+      id: fieldKey,
+      index: fieldNum,
+      name: fieldDef.label,
+      isMultiLine: isMultiLine,
+      rowEl: row,
+      input: row.querySelector(`#${inputId}`),
+      wrapper: row.querySelector(`#${wrapperId}`),
+      clearBtn: row.querySelector(`#${clearBtnId}`),
+      micBadge: row.querySelector(`#${micBadgeId}`)
+    };
+  });
+
+  // Backward-compatibility aliases for legacy core fields
+  FIELDS.ownerQuotes = FIELDS.ownerDescription;
+}
+
+// Build all fields immediately
+buildAllFields();
 
 // UI Controls & Indicators
 const submitBtn = document.getElementById('submitBtn');
 const submitBtnText = document.getElementById('submitBtnText');
 const btnSpinner = document.getElementById('btnSpinner');
 
-const activeFieldPill = document.getElementById('activeFieldPill');
-const listeningFieldText = document.getElementById('listeningFieldText');
-const micSoundLevelBadge = document.getElementById('micSoundLevelBadge');
+const fieldSearchInput = document.getElementById('fieldSearchInput');
+const clearSearchBtn = document.getElementById('clearSearchBtn');
+const visibleFieldCount = document.getElementById('visibleFieldCount');
 
 const toastMessage = document.getElementById('toastMessage');
 const toastTitle = document.getElementById('toastTitle');
@@ -113,13 +220,13 @@ const toastCloseBtn = document.getElementById('toastCloseBtn');
 
 // Speech Recognition Engine State
 let recognition = null;
-let activeRecordingField = null; // Key of FIELDS or null
+let activeRecordingField = null; // Key of active field or null
 let isUserIntentRecording = false;
 let restartTimeout = null;
 let baseTextAtSessionStart = '';
 let hasSpokenInSession = false;
 
-// Device Detection: Identify mobile/tablet browsers (Chromium on Android, iOS Safari, etc.)
+// Device Detection
 const isMobileDevice = (() => {
   const ua = navigator.userAgent || navigator.vendor || window.opera || '';
   const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|Silk/i;
@@ -128,21 +235,17 @@ const isMobileDevice = (() => {
 })();
 
 /**
- * Clean immediate duplicated words/phrases generated by erratic mobile speech engines
- * (e.g. transforms "time time time" -> "time", "hello hello" -> "hello")
+ * Clean immediate duplicated words/phrases generated by mobile speech engines
  */
 function cleanDuplicateWords(text) {
   if (!text) return '';
-  // 1. Remove consecutive identical word repetitions (e.g. "time time time" -> "time")
   let cleaned = text.replace(/\b(\w+)(?:[,\s]+\1\b)+/gi, '$1');
-  // 2. Remove consecutive identical 2-word phrase repetitions (e.g. "good morning good morning" -> "good morning")
   cleaned = cleaned.replace(/\b(\w+\s+\w+)(?:[,\s]+\1\b)+/gi, '$1');
   return cleaned;
 }
 
 /**
- * Seam Stitcher: Seamlessly stitches existing base text with newly spoken text
- * Eliminates duplicate words at the boundary between speech recognition sessions
+ * Seam Stitcher: Stitches existing base text with newly spoken text without boundary duplication
  */
 function appendSpokenText(baseText, spokenText) {
   if (!baseText) return spokenText;
@@ -151,17 +254,14 @@ function appendSpokenText(baseText, spokenText) {
   const baseTrimmed = baseText.trim();
   const spokenTrimmed = spokenText.trim();
 
-  // If spokenText is already completely contained at the end of baseText:
   if (baseTrimmed.toLowerCase().endsWith(spokenTrimmed.toLowerCase())) {
     return baseTrimmed;
   }
 
   const baseWords = baseTrimmed.split(/\s+/);
   const spokenWords = spokenTrimmed.split(/\s+/);
-
   const cleanWord = (w) => w.replace(/[^\w]/g, '').toLowerCase();
 
-  // Check for 1, 2, or 3 word overlap between baseText tail and spokenText head
   const maxOverlap = Math.min(3, baseWords.length, spokenWords.length);
   let overlapCount = 0;
 
@@ -176,16 +276,14 @@ function appendSpokenText(baseText, spokenText) {
 
   if (overlapCount > 0) {
     const nonOverlappingSpoken = spokenWords.slice(overlapCount).join(' ');
-    if (!nonOverlappingSpoken) {
-      return baseTrimmed;
-    }
+    if (!nonOverlappingSpoken) return baseTrimmed;
     return baseTrimmed + ' ' + nonOverlappingSpoken;
   }
 
   return baseTrimmed + ' ' + spokenTrimmed;
 }
 
-// Web Audio Pleasant Synthesized Chimes (Cosmetic feedback only)
+// Web Audio Pleasant Synthesized Chimes (Cosmetic feedback)
 let chimeAudioCtx = null;
 function playTone(type = 'start') {
   try {
@@ -229,34 +327,13 @@ function playTone(type = 'start') {
       osc.stop(now + 0.3);
     }
   } catch (err) {
-    // Audio feedback is purely cosmetic
+    // Cosmetic audio only
   }
-}
-
-/**
- * Toggle recording for a specific field by key
- */
-function toggleFieldRecording(fieldKey) {
-  if (isUserIntentRecording && activeRecordingField === fieldKey) {
-    stopRecording();
-    return;
-  }
-
-  if (isUserIntentRecording) {
-    stopRecording();
-    setTimeout(() => {
-      startFieldRecording(fieldKey);
-    }, 150);
-    return;
-  }
-
-  startFieldRecording(fieldKey);
 }
 
 /**
  * Start Speech Recognition targeting a specific input
- * CRITICAL: Zero getUserMedia locks to ensure Bluetooth / Windows audio drivers
- * have 100% exclusive audio transmission to the speech recognition service.
+ * CRITICAL: Zero getUserMedia locks to ensure 100% exclusive audio transmission
  */
 function startFieldRecording(fieldKey, isSilentRestart = false) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -264,7 +341,7 @@ function startFieldRecording(fieldKey, isSilentRestart = false) {
   if (!SpeechRecognition) {
     showToast(
       'Browser Speech Not Supported',
-      'Please open this app in Google Chrome or Microsoft Edge for native live speech recognition.',
+      'Please open this app in Google Chrome or Microsoft Edge for live voice typing.',
       'error'
     );
     return;
@@ -288,180 +365,90 @@ function startFieldRecording(fieldKey, isSilentRestart = false) {
 
   try {
     recognition = new SpeechRecognition();
-
-    // CRITICAL MOBILE STABILITY FIX (Chromium Android Bug #651715):
-    // On mobile devices (especially Chrome for Android), setting continuous = true causes
-    // the underlying Google Speech recognizer to push duplicate/triplicate results
-    // ("time time time" instead of "time").
-    // Setting continuous = false on mobile delivers clean, accurate, single-phrase chunks.
-    // Our seamless onend auto-restart handles continuous flow effortlessly without any word duplication!
     recognition.continuous = !isMobileDevice;
-    recognition.interimResults = true; // Enables live real-time character typing
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognition.lang = selectedDialect;
-
-    console.log(`[SpeechEngine] Started listening for ${fieldConfig.name} in ${selectedDialect} (continuous: ${!isMobileDevice})`);
 
     recognition.onstart = () => {
       if (!isSilentRestart) {
         playTone('start');
       }
 
-      // Highlight active wrapper and activate moving corner mic badge
+      // Highlight active wrapper and show recording badge
       Object.keys(FIELDS).forEach((key) => {
         const item = FIELDS[key];
-        if (item) {
+        if (item && item.wrapper && item.micBadge) {
           if (key === fieldKey) {
-            if (item.wrapper) item.wrapper.classList.add('recording');
-            if (item.micBadge) item.micBadge.classList.add('active-recording');
+            item.wrapper.classList.add('recording');
+            item.micBadge.classList.add('active-recording');
           } else {
-            if (item.wrapper) item.wrapper.classList.remove('recording');
-            if (item.micBadge) item.micBadge.classList.remove('active-recording');
+            item.wrapper.classList.remove('recording');
+            item.micBadge.classList.remove('active-recording');
           }
         }
       });
     };
 
     recognition.onspeechstart = () => {
-      if (listeningFieldText) {
-        listeningFieldText.textContent = 'Transcribing live... Speak naturally';
-      }
-      if (micSoundLevelBadge) {
-        micSoundLevelBadge.textContent = 'Voice Detected ✓';
-        micSoundLevelBadge.style.color = '#059669';
-      }
+      hasSpokenInSession = true;
     };
 
-    /**
-     * LIVE CHARACTER-BY-CHARACTER TYPING ENGINE WITH DEDUPLICATION
-     * Captures both finalized and interim words with robust mobile deduplication.
-     */
     recognition.onresult = (event) => {
-      hasSpokenInSession = true;
-      let finalPhrases = [];
-      let interimText = '';
+      if (!isUserIntentRecording || activeRecordingField !== fieldKey) return;
 
-      for (let i = 0; i < event.results.length; ++i) {
-        const res = event.results[i];
-        if (!res || !res[0]) continue;
-        const text = (res[0].transcript || '').trim();
-        if (!text) continue;
+      let interimTranscript = '';
+      let finalTranscript = '';
 
-        if (res.isFinal) {
-          // Mobile bug protection: Avoid pushing identical or cumulative duplicate chunks
-          if (finalPhrases.length > 0) {
-            const prev = finalPhrases[finalPhrases.length - 1];
-            // Exact duplicate (e.g. "time" emitted twice)
-            if (prev.toLowerCase() === text.toLowerCase()) {
-              continue;
-            }
-            // Cumulative expansion (e.g. prev="built in", text="built in 1928")
-            if (text.toLowerCase().startsWith(prev.toLowerCase())) {
-              finalPhrases[finalPhrases.length - 1] = text;
-              continue;
-            }
-            // Tail duplicate
-            if (prev.toLowerCase().endsWith(text.toLowerCase())) {
-              continue;
-            }
-          }
-          finalPhrases.push(text);
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcriptChunk = result[0].transcript;
+
+        if (result.isFinal) {
+          finalTranscript += transcriptChunk;
         } else {
-          interimText = text;
+          interimTranscript += transcriptChunk;
         }
       }
 
-      let currentFinal = finalPhrases.join(' ').trim();
+      const targetInput = fieldConfig.input;
+      if (!targetInput) return;
 
-      // De-conflict interim and final text to avoid repeating words at the boundary
-      if (interimText && currentFinal) {
-        if (currentFinal.toLowerCase().endsWith(interimText.toLowerCase())) {
-          interimText = '';
-        } else if (interimText.toLowerCase().startsWith(currentFinal.toLowerCase())) {
-          currentFinal = '';
-        } else {
-          const finalWords = currentFinal.split(/\s+/);
-          const interimWords = interimText.split(/\s+/);
-          const maxOverlap = Math.min(3, finalWords.length, interimWords.length);
-          for (let n = maxOverlap; n >= 1; n--) {
-            const finalTail = finalWords.slice(-n).map(w => w.replace(/[^\w]/g, '').toLowerCase()).join(' ');
-            const interimHead = interimWords.slice(0, n).map(w => w.replace(/[^\w]/g, '').toLowerCase()).join(' ');
-            if (finalTail && finalTail === interimHead) {
-              interimText = interimWords.slice(n).join(' ');
-              break;
-            }
-          }
-        }
+      let rawSpoken = (finalTranscript + interimTranscript).trim();
+      let cleanedSpoken = isMobileDevice ? cleanDuplicateWords(rawSpoken) : rawSpoken;
+
+      if (cleanedSpoken.length > 0) {
+        hasSpokenInSession = true;
+        const stitched = appendSpokenText(baseTextAtSessionStart, cleanedSpoken);
+        targetInput.value = stitched;
+        targetInput.scrollTop = targetInput.scrollHeight;
+        updateFieldStates();
       }
-
-      const rawCombined = (currentFinal + (interimText ? ' ' + interimText : '')).trim();
-      if (!rawCombined) return;
-
-      // Clean inline word/phrase repetitions (e.g. "time time time" -> "time")
-      const spokenContent = cleanDuplicateWords(rawCombined);
-      if (!spokenContent) return;
-
-      // Stitch with base text cleanly without boundary word duplication
-      const combined = appendSpokenText(baseTextAtSessionStart, spokenContent).trimStart();
-      const formatted = combined.charAt(0).toUpperCase() + combined.slice(1);
-
-      if (fieldConfig.input) {
-        fieldConfig.input.value = formatted;
-      }
-
-      if (listeningFieldText) {
-        const words = spokenContent.split(' ');
-        const snippet = words.slice(-4).join(' ');
-        listeningFieldText.textContent = `✍️ "${snippet}..."`;
-      }
-
-      if (micSoundLevelBadge) {
-        micSoundLevelBadge.textContent = 'Transcribing ✓';
-        micSoundLevelBadge.style.color = '#059669';
-      }
-
-      updateFieldStates();
     };
 
     recognition.onerror = (event) => {
-      console.warn('[SpeechEngine] Notice:', event.error);
-
-      // Harmless lifecycle events that happen normally during natural pauses
-      if (event.error === 'aborted' || event.error === 'no-speech') {
+      if (event.error === 'no-speech') {
+        return; // Normal pause in speech, onend handles it
+      }
+      if (event.error === 'aborted') {
         return;
       }
-
-      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      if (event.error === 'not-allowed') {
         showToast(
-          'Microphone Blocked',
-          'Please click the lock/tune icon in your browser address bar and choose "Allow" for Microphone.',
+          'Microphone Permission Needed',
+          'Please allow microphone access in your browser address bar to speak.',
           'error'
         );
         stopRecording();
-      } else if (event.error === 'audio-capture') {
-        showToast(
-          'Microphone Busy',
-          'Your microphone hardware is unavailable or in use by another application. Please check Windows Sound settings.',
-          'error'
-        );
-        stopRecording();
-      } else if (event.error === 'network') {
-        console.warn('[SpeechEngine] Network speech reconnecting...');
       }
     };
 
     recognition.onend = () => {
-      console.log('[SpeechEngine] Recognition cycle ended.');
-
-      // If user is still recording, seamlessly continue listening for the next sentence
-      if (isUserIntentRecording && activeRecordingField) {
-        const currentField = FIELDS[activeRecordingField];
-        if (currentField && currentField.input) {
-          const val = currentField.input.value ? currentField.input.value.trim() : '';
-          baseTextAtSessionStart = val ? val + ' ' : '';
+      if (isUserIntentRecording && activeRecordingField === fieldKey) {
+        if (fieldConfig.input && fieldConfig.input.value) {
+          baseTextAtSessionStart = fieldConfig.input.value.trim() + ' ';
         }
 
-        // On mobile, give 180ms delay to allow device audio subsystem to release mic cleanly
         const restartDelay = isMobileDevice ? 180 : 100;
         restartTimeout = setTimeout(() => {
           if (isUserIntentRecording && activeRecordingField) {
@@ -492,7 +479,6 @@ function stopRecording() {
   cleanUpExistingRecognition();
   cleanUpUI();
 
-  // Trim trailing spaces and update states
   Object.keys(FIELDS).forEach((key) => {
     const f = FIELDS[key];
     if (f && f.input) {
@@ -550,7 +536,6 @@ function updateFieldStates() {
       hasAnyContent = true;
     }
 
-    // Toggle clear button
     if (field.clearBtn) {
       if (val.length > 0) {
         field.clearBtn.classList.remove('hidden');
@@ -559,14 +544,7 @@ function updateFieldStates() {
       }
     }
 
-    // Update word & character stats for textareas
     if (field.isMultiLine) {
-      const len = val.length;
-      const words = trimmed ? trimmed.split(/\s+/).length : 0;
-      if (field.charCount) field.charCount.textContent = `${len} character${len === 1 ? '' : 's'}`;
-      if (field.wordCount) field.wordCount.textContent = `${words} word${words === 1 ? '' : 's'}`;
-
-      // Strictly remove scroll on input when there is no text
       if (!trimmed) {
         field.input.style.overflowY = 'hidden';
       } else {
@@ -585,38 +563,47 @@ function clearField(fieldKey) {
   const field = FIELDS[fieldKey];
   if (!field || !field.input) return;
 
-  // Clear value and reset voice snapshot
   field.input.value = '';
   baseTextAtSessionStart = '';
   updateFieldStates();
 
-  // Focus the input
   field.input.focus();
 
-  // Immediately start speech recognition on this cleared field
-  // so whatever the user speaks next is immediately transcribed
   cleanUpExistingRecognition();
   startFieldRecording(fieldKey);
 }
 
 /**
- * Submit Story to Google Sheet
+ * Submit All Filled Fields to Google Sheet
  */
 async function handleSubmitStory() {
-  const payload = {
-    storyTitle: FIELDS.storyTitle.input.value.trim(),
-    storySubHeading: FIELDS.storySubHeading.input.value.trim(),
-    storyDescription: FIELDS.storyDescription.input.value.trim(),
-    challengeDescription: FIELDS.challengeDescription.input.value.trim(),
-    planDescription: FIELDS.planDescription.input.value.trim(),
-    makeoverDescription: FIELDS.makeoverDescription.input.value.trim(),
-    ownerDescription: (FIELDS.ownerDescription || FIELDS.ownerQuotes).input.value.trim(),
-    ownerQuotes: (FIELDS.ownerDescription || FIELDS.ownerQuotes).input.value.trim(),
-    language: selectedDialect,
-    timestamp: new Date().toISOString()
-  };
+  const payload = {};
 
-  const hasContent = Object.values(payload).some((val) => typeof val === 'string' && val.length > 0 && val !== selectedDialect);
+  FIELDS_CONFIG.forEach((f) => {
+    const field = FIELDS[f.key];
+    if (field && field.input) {
+      const val = field.input.value.trim();
+      if (val) {
+        payload[f.label] = val;
+      }
+    }
+  });
+
+  // Backward compatibility keys for server mapping
+  payload.storyTitle = (FIELDS.storyTitle?.input?.value || '').trim();
+  payload.storySubHeading = (FIELDS.storySubHeading?.input?.value || '').trim();
+  payload.storyDescription = (FIELDS.storyDescription?.input?.value || '').trim();
+  payload.challengeDescription = (FIELDS.challengeDescription?.input?.value || '').trim();
+  payload.planDescription = (FIELDS.planDescription?.input?.value || '').trim();
+  payload.makeoverDescription = (FIELDS.makeoverDescription?.input?.value || '').trim();
+  payload.ownerDescription = (FIELDS.ownerDescription?.input?.value || '').trim();
+  payload.ownerQuotes = (FIELDS.ownerDescription?.input?.value || '').trim();
+  payload.language = selectedDialect;
+  payload.timestamp = new Date().toISOString();
+
+  const hasContent = Object.entries(payload).some(([k, val]) => {
+    return typeof val === 'string' && val.length > 0 && k !== 'language' && k !== 'timestamp';
+  });
 
   if (!hasContent) {
     showToast('Empty Manuscript', 'Please dictate or write into at least one field before saving.', 'error');
@@ -656,7 +643,7 @@ async function handleSubmitStory() {
 
     // Reset inputs
     Object.keys(FIELDS).forEach((key) => {
-      if (FIELDS[key].input) {
+      if (FIELDS[key]?.input) {
         FIELDS[key].input.value = '';
       }
     });
@@ -712,80 +699,123 @@ function showToast(title, subtitle, type = 'success') {
 }
 
 /* ==========================================================================
-   Event Listeners
+   Event Listeners Setup
    ========================================================================== */
 
-// Set up field listeners (Focusing or clicking anywhere on a field activates and maintains recording)
-Object.keys(FIELDS).forEach((key) => {
-  const field = FIELDS[key];
-  if (!field || !field.wrapper) return;
+function setupFieldListeners() {
+  Object.keys(FIELDS).forEach((key) => {
+    const field = FIELDS[key];
+    if (!field || !field.wrapper) return;
 
-  // Clicking anywhere on the field wrapper ensures focus and keeps/starts recording
-  field.wrapper.addEventListener('click', (e) => {
-    // If clicked on clear eraser button, clearField handles it
-    if (e.target.closest('.clear-btn')) return;
+    // Click anywhere on the field wrapper focuses input and starts recording
+    field.wrapper.addEventListener('click', (e) => {
+      if (e.target.closest('.clear-btn')) return;
 
-    // Focus input if not already focused
-    if (document.activeElement !== field.input && field.input) {
-      field.input.focus();
-    }
+      if (document.activeElement !== field.input && field.input) {
+        field.input.focus();
+      }
 
-    // Ensure speech recognition is active for this field (do NOT turn off while user is in the field)
-    if (activeRecordingField !== key || !isUserIntentRecording) {
-      startFieldRecording(key);
-    }
-  });
-
-  // Input focus listener: When focused (via click, Tab key, or programmatic focus), activate recording
-  if (field.input) {
-    field.input.addEventListener('focus', () => {
       if (activeRecordingField !== key || !isUserIntentRecording) {
         startFieldRecording(key);
       }
     });
 
-    // When user manually types or edits, keep base snapshot in sync
-    field.input.addEventListener('input', (e) => {
-      if (e.isTrusted) {
-        baseTextAtSessionStart = field.input.value ? field.input.value.trim() + ' ' : '';
-      }
-      updateFieldStates();
-    });
-  }
+    // Input focus triggers recording
+    if (field.input) {
+      field.input.addEventListener('focus', () => {
+        if (activeRecordingField !== key || !isUserIntentRecording) {
+          startFieldRecording(key);
+        }
+      });
 
-  // Clear button click listener
-  if (field.clearBtn) {
-    field.clearBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      clearField(key);
-    });
-  }
+      field.input.addEventListener('input', (e) => {
+        if (e.isTrusted) {
+          baseTextAtSessionStart = field.input.value ? field.input.value.trim() + ' ' : '';
+        }
+        updateFieldStates();
+      });
+    }
 
-  // Clicking the active corner mic badge allows explicitly stopping recording if desired
-  if (field.micBadge) {
-    field.micBadge.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (isUserIntentRecording && activeRecordingField === key) {
-        stopRecording();
+    // Clear eraser button
+    if (field.clearBtn) {
+      field.clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearField(key);
+      });
+    }
+
+    // Corner mic badge toggle
+    if (field.micBadge) {
+      field.micBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isUserIntentRecording && activeRecordingField === key) {
+          stopRecording();
+        } else {
+          if (field.input) field.input.focus();
+          startFieldRecording(key);
+        }
+      });
+    }
+  });
+}
+
+// Search / Quick Jump Filter across all 93 fields
+function setupSearchFilter() {
+  if (!fieldSearchInput) return;
+
+  const handleFilter = () => {
+    const query = fieldSearchInput.value.trim().toLowerCase();
+    let count = 0;
+
+    if (query) {
+      clearSearchBtn.classList.remove('hidden');
+    } else {
+      clearSearchBtn.classList.add('hidden');
+    }
+
+    FIELDS_CONFIG.forEach((f) => {
+      const field = FIELDS[f.key];
+      if (!field || !field.rowEl) return;
+
+      const label = f.label.toLowerCase();
+      const numStr = String(field.index);
+      const isMatch = !query || label.includes(query) || numStr === query;
+
+      if (isMatch) {
+        field.rowEl.style.display = '';
+        count++;
       } else {
-        if (field.input) field.input.focus();
-        startFieldRecording(key);
+        field.rowEl.style.display = 'none';
       }
     });
-  }
-});
 
-// Stop recording when clicking outside anywhere of the input box
+    if (visibleFieldCount) {
+      visibleFieldCount.textContent = count;
+    }
+  };
+
+  fieldSearchInput.addEventListener('input', handleFilter);
+
+  if (clearSearchBtn) {
+    clearSearchBtn.addEventListener('click', () => {
+      fieldSearchInput.value = '';
+      handleFilter();
+      fieldSearchInput.focus();
+    });
+  }
+}
+
+// Stop recording when clicking outside any input box
 document.addEventListener('click', (e) => {
   if (!isUserIntentRecording) return;
   const clickedInputBox = e.target.closest('.paper-input-container');
   if (!clickedInputBox) {
-    console.log('[SpeechEngine] Clicked outside input box -> stopping recording');
+    if (e.target.closest('#fieldSearchBar')) return;
     stopRecording();
   }
 });
 
-// Dynamic Date Stamp (Always current runtime date, never hardcoded)
+// Dynamic Date Stamp
 function updateCurrentDate() {
   const todayStamp = document.getElementById('todayStamp');
   if (todayStamp) {
@@ -797,7 +827,6 @@ function updateCurrentDate() {
     });
   }
 }
-updateCurrentDate();
 
 // Keyboard Shortcuts: Ctrl+Enter or Cmd+Enter to submit
 window.addEventListener('keydown', (e) => {
@@ -817,9 +846,17 @@ toastCloseBtn.addEventListener('click', () => {
   toastMessage.classList.add('hidden');
 });
 
-// Initialize on page load
+// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
+  setupFieldListeners();
+  setupSearchFilter();
   updateCurrentDate();
   updateFieldStates();
-  console.log('[SpeakStory] Ready. Minimal corner recording indicators active.');
+  console.log(`[SpeakStory] All 93 fields initialized in one continuous flow.`);
 });
+
+// Also run listeners setup immediately since app.js is loaded at bottom of page
+setupFieldListeners();
+setupSearchFilter();
+updateCurrentDate();
+updateFieldStates();

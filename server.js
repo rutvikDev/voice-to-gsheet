@@ -72,7 +72,6 @@ const DEFAULT_SHEET_HEADERS = [
   'Challange Cards_challange_card_heading',
   'Challange Cards_challange_card_sub_heading',
   'Challange Cards_challange_card_text',
-  'Makeover Sub Heading',
   'Makeover Heading',
   'Makeover Description',
   'Before Image',
@@ -362,14 +361,14 @@ async function getNextSequenceNumber(sheets) {
  * Map incoming submission data to the exact columns of the Google Sheet
  */
 function mapSubmissionToRow(headers, data, sequenceNumber = 1) {
-  const cleanStoryTitle = (data.storyTitle || data.topic || data.title || '').trim();
-  const cleanStorySubHeading = (data.storySubHeading || data.subheading || data.storySubheading || '').trim();
-  const cleanStoryDescription = (data.storyDescription || data.description || data.text || '').trim();
-  const cleanChallengeDesc = (data.challengeDescription || data.challangeDescription || data.challenge || '').trim();
-  const cleanPlanDesc = (data.planDescription || data.plan || '').trim();
-  const cleanMakeoverDesc = (data.makeoverDescription || data.makeover || '').trim();
-  const cleanOwnerDesc = (data.ownerDescription || data.ownerQuotes || data.ownerTestimonials || data.quotes || '').trim();
-  const cleanOwnerQuotes = (data.ownersCardsOwnerCardText || data.ownerCardText || '').trim();
+  const cleanStoryTitle = (data.storyTitle || data['Story Title'] || data.topic || data.title || '').trim();
+  const cleanStorySubHeading = (data.storySubHeading || data['Story sub heading'] || data['Story Sub Heading'] || data.subheading || data.storySubheading || '').trim();
+  const cleanStoryDescription = (data.storyDescription || data['Story Description'] || data.description || data.text || '').trim();
+  const cleanChallengeDesc = (data.challengeDescription || data['Challange Description'] || data['Challenge Description'] || data.challangeDescription || data.challenge || '').trim();
+  const cleanPlanDesc = (data.planDescription || data['Plan Description'] || data.plan || '').trim();
+  const cleanMakeoverDesc = (data.makeoverDescription || data['Makeover Description'] || data.makeover || '').trim();
+  const cleanOwnerDesc = (data.ownerDescription || data['Owner Description'] || data.ownerQuotes || data.ownerTestimonials || data.quotes || '').trim();
+  const cleanOwnerQuotes = (data.ownersCardsOwnerCardText || data['Owners Cards_owner_card_text'] || data.ownerCardText || '').trim();
 
   // Story ID: unique string identifier (e.g. story_1791965673269) saved in 'Story ID' column
   const generatedStoryId = data.storyId || data.StoryID || data.story_id ||
@@ -542,16 +541,21 @@ app.post('/api/submit', async (req, res) => {
       timestamp = new Date().toISOString()
     } = req.body;
 
-    const cleanStoryTitle = (storyTitle || topic || '').trim();
-    const cleanStorySubHeading = (storySubHeading || '').trim();
-    const cleanStoryDescription = (storyDescription || description || text || '').trim();
-    const cleanChallengeDesc = (challengeDescription || '').trim();
-    const cleanPlanDesc = (planDescription || '').trim();
-    const cleanMakeoverDesc = (makeoverDescription || '').trim();
-    const cleanOwnerDesc = (ownerDescription || ownerQuotes || '').trim();
+    const cleanStoryTitle = (storyTitle || req.body['Story Title'] || topic || '').trim();
+    const cleanStorySubHeading = (storySubHeading || req.body['Story sub heading'] || req.body['Story Sub Heading'] || '').trim();
+    const cleanStoryDescription = (storyDescription || req.body['Story Description'] || description || text || '').trim();
+    const cleanChallengeDesc = (challengeDescription || req.body['Challange Description'] || req.body['Challenge Description'] || '').trim();
+    const cleanPlanDesc = (planDescription || req.body['Plan Description'] || '').trim();
+    const cleanMakeoverDesc = (makeoverDescription || req.body['Makeover Description'] || '').trim();
+    const cleanOwnerDesc = (ownerDescription || req.body['Owner Description'] || ownerQuotes || '').trim();
 
-    if (!cleanStoryTitle && !cleanStorySubHeading && !cleanStoryDescription &&
-        !cleanChallengeDesc && !cleanPlanDesc && !cleanMakeoverDesc && !cleanOwnerDesc) {
+    // Check if ANY field in the entire payload has content (core + extended)
+    const hasAnyContent = Object.entries(req.body).some(([k, v]) => {
+      if (k === 'language' || k === 'timestamp') return false;
+      return typeof v === 'string' && v.trim().length > 0;
+    });
+
+    if (!hasAnyContent) {
       return res.status(400).json({
         success: false,
         error: 'Please enter or speak into at least one field before saving to Google Sheets.'
