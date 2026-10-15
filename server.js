@@ -15,7 +15,61 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID || '1PETlMXFGuKl7-n84yRwuYbKS5xrPl79ykV9FyfzprYk';
-const SHEET_NAME = process.env.GOOGLE_SHEET_NAME || 'Sheet1';
+// Fallback sheet name only used if the API cannot resolve the actual name
+const FALLBACK_SHEET_NAME = process.env.GOOGLE_SHEET_NAME || 'Sheet1';
+
+// Cache for dynamically resolved sheet name (keyed by spreadsheetId)
+// Includes a TTL so renames are detected without restarting the server
+const sheetNameCache = {};
+const SHEET_NAME_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Dynamically resolve the actual name of the first sheet tab in the spreadsheet.
+ * This ensures data is saved correctly even if the user renames the sheet.
+ * The result is cached with a TTL to balance performance and rename detection.
+ */
+async function getFirstSheetName(sheets) {
+  const cached = sheetNameCache[SPREADSHEET_ID];
+  if (cached && (Date.now() - cached.timestamp < SHEET_NAME_CACHE_TTL_MS)) {
+    return cached.name;
+  }
+
+  try {
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+      fields: 'sheets.properties.title'
+    });
+
+    const sheetsList = meta.data.sheets;
+    if (sheetsList && sheetsList.length > 0) {
+      const resolvedName = sheetsList[0].properties.title;
+      sheetNameCache[SPREADSHEET_ID] = { name: resolvedName, timestamp: Date.now() };
+      console.log(`[SHEETS] Resolved first sheet name: "${resolvedName}"`);
+      return resolvedName;
+    }
+  } catch (err) {
+    console.warn('[SHEETS] Could not resolve sheet name from API, using fallback:', err.message);
+  }
+
+  // Fall back to env or default
+  const fallback = FALLBACK_SHEET_NAME;
+  sheetNameCache[SPREADSHEET_ID] = { name: fallback, timestamp: Date.now() };
+  return fallback;
+}
+
+/**
+ * Build a safe A1-notation range string for the Sheets API.
+ * Only wraps the sheet name in single quotes when it contains spaces or
+ * special characters — the googleapis Node.js client URL-encodes quotes,
+ * which can cause "Unable to parse range" errors for simple names.
+ */
+function formatSheetRange(sheetName, cellRange) {
+  const needsQuoting = /[^a-zA-Z0-9_]/.test(sheetName);
+  const safeName = needsQuoting
+    ? `'${sheetName.replace(/'/g, "''")}'`
+    : sheetName;
+  return `${safeName}!${cellRange}`;
+}
 
 app.use(cors());
 app.use(express.json());
@@ -304,22 +358,23 @@ function normalizeKey(str) {
  */
 async function ensureHeaders(sheets) {
   try {
+    const sheetName = await getFirstSheetName(sheets);
     const existing = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_NAME}!1:1`
+      range: formatSheetRange(sheetName, '1:1')
     });
 
     if (!existing.data.values || existing.data.values.length === 0 || existing.data.values[0].length === 0) {
       const lastCol = getColumnLetter(DEFAULT_SHEET_HEADERS.length);
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A1:${lastCol}1`,
+        range: formatSheetRange(sheetName, `A1:${lastCol}1`),
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [DEFAULT_SHEET_HEADERS]
         }
       });
-      console.log(`[SHEETS] Wrote master 104 headers to ${SHEET_NAME}!A1:${lastCol}1`);
+      console.log(`[SHEETS] Wrote master 104 headers to ${formatSheetRange(sheetName, `A1:${lastCol}1`)}`);
       return DEFAULT_SHEET_HEADERS;
     }
 
@@ -335,9 +390,10 @@ async function ensureHeaders(sheets) {
  */
 async function getNextSequenceNumber(sheets) {
   try {
+    const sheetName = await getFirstSheetName(sheets);
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_NAME}!A:A`
+      range: formatSheetRange(sheetName, 'A:A')
     });
     const rows = res.data.values || [];
     if (rows.length <= 1) {
@@ -470,11 +526,12 @@ async function appendStoryToSheet(saCreds, submissionData) {
   // 3. Map payload to the exact columns of the sheet
   const { row, mappedSummary, sequenceNumber, generatedStoryId, generatedSlug } = mapSubmissionToRow(headers, submissionData, nextSeq);
 
-  // 4. Append to the full width range
+  // 4. Resolve the actual sheet tab name and append to the full width range
+  const sheetName = await getFirstSheetName(sheets);
   const lastColLetter = getColumnLetter(headers.length);
   const response = await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:${lastColLetter}`,
+    range: formatSheetRange(sheetName, `A:${lastColLetter}`),
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
@@ -652,5 +709,12 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
+  const sa = getServiceAccountCredentials();
   console.log(`🚀 Voice to Google Sheet app running at http://localhost:${PORT}`);
+  console.log(`📊 Target Sheet: https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=0`);
+  if (sa) {
+    console.log(`🛡️ Service Account configured: ${sa.clientEmail}`);
+  } else {
+    console.log(`⚠️ Waiting for Service Account JSON or credentials`);
+  }
 });

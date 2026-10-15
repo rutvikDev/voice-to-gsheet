@@ -116,8 +116,22 @@ let recognition = null;
 let activeRecordingField = null; // Key of FIELDS or null
 let isUserIntentRecording = false;
 let restartTimeout = null;
-let baseTextAtSessionStart = '';
+
+// Mobile detection — Android/iOS handle continuous recognition differently
+const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Multi-tier cursor-aware speech buffers:
+let sessionPrefix = '';         // Text BEFORE the active cursor / insertion point
+let sessionSuffix = '';         // Text AFTER the active cursor / insertion point
+let sessionFinalText = '';      // Accumulated confirmed final transcripts at current insertion point
+let sessionInterimText = '';    // In-flight, unconfirmed interim text (transient, per-cycle)
+let lastFinalTranscript = '';   // Last finalized chunk for overlap deduplication
 let hasSpokenInSession = false;
+let currentCursorPos = -1;      // Current insertion caret position
+let currentSelStart = -1;       // Current selection start index
+let currentSelEnd = -1;         // Current selection end index
+let isProgrammaticCursorUpdate = false; // Flag to prevent programmatic caret set from triggering user move
+let cursorDebounceTimer = null;
 
 // Web Audio Pleasant Synthesized Chimes (Cosmetic feedback only)
 let chimeAudioCtx = null;
@@ -168,6 +182,240 @@ function playTone(type = 'start') {
 }
 
 /**
+ * Smart Punctuation and Voice Dictation Formatter
+ * Accurately catches spoken punctuation marks and formats spacing & capitalization.
+ */
+function formatPunctuation(text, isMultiLine = false, isMiddleOfSentence = false) {
+  if (!text) return '';
+  let str = text;
+
+  // 1. Spoken Punctuation Words to Symbols
+  str = str.replace(/\b(full\s*stop)\b/gi, '.');
+  str = str.replace(/\b(this|that|the|a|an|time|grace|probationary|short|long|extended)\s+period\b/gi, '$1 __PERIOD_NOUN__');
+  str = str.replace(/\bperiod\b/gi, '.');
+  str = str.replace(/__PERIOD_NOUN__/g, 'period');
+
+  str = str.replace(/\bcomma\b/gi, ',');
+  str = str.replace(/\bquestion\s*mark\b/gi, '?');
+  str = str.replace(/\bexclamation\s*(mark|point)\b/gi, '!');
+  str = str.replace(/\b(semi[-\s]?colon)\b/gi, ';');
+  str = str.replace(/\bcolon\b/gi, ':');
+  str = str.replace(/\b(hyphen|em\s*dash|en\s*dash)\b/gi, '-');
+
+  str = str.replace(/\b(open\s*quotes?)\b/gi, '"');
+  str = str.replace(/\b(close\s*quotes?)\b/gi, '"');
+  str = str.replace(/\bquote\s*unquote\b/gi, '"');
+  str = str.replace(/\s*"\s*([^"]+?)\s*"\s*/g, ' "$1" ');
+
+  str = str.replace(/\b(open\s*bracket|open\s*parenthes[ie]s|open\s*paren)\b/gi, '(');
+  str = str.replace(/\b(close\s*bracket|close\s*parenthes[ie]s|close\s*paren)\b/gi, ')');
+  str = str.replace(/\s*\(\s*([^)]+?)\s*\)\s*/g, ' ($1) ');
+
+  if (isMultiLine) {
+    str = str.replace(/\b(new\s*line|next\s*line)\s+of\b/gi, '__LINE_OF__');
+    str = str.replace(/\b(new\s*line|next\s*line)\b/gi, '\n');
+    str = str.replace(/__LINE_OF__/g, 'new line of');
+  } else {
+    str = str.replace(/\b(new\s*line|next\s*line)\b/gi, ' ');
+  }
+
+  // 2. Clean spaces before punctuation marks
+  str = str.replace(/\s+([,.:;?!])/g, '$1');
+
+  // 3. Ensure space after punctuation when followed directly by letters
+  str = str.replace(/([,:;?!])([A-Za-z])/g, '$1 $2');
+  str = str.replace(/\.([A-Za-z]{2,})/g, '. $1');
+
+  // Collapse multiple spaces (preserving newlines)
+  str = str.replace(/[^\S\r\n]{2,}/g, ' ');
+
+  // 4. Clean spaces around newlines
+  if (isMultiLine) {
+    str = str.replace(/[ \t]*\n[ \t]*/g, '\n');
+  }
+
+  // 5. Capitalize first letter of string (only if not middle of sentence)
+  if (!isMiddleOfSentence) {
+    str = str.replace(/^(\s*)([a-z])/, (m, p1, p2) => p1 + p2.toUpperCase());
+  }
+
+  // 6. Capitalize letter after sentence terminators (. ? !)
+  str = str.replace(/([.?!]\s+)([a-z])/g, (m, p1, p2) => p1 + p2.toUpperCase());
+
+  // 7. Capitalize letter after newline
+  if (isMultiLine) {
+    str = str.replace(/(\n\s*)([a-z])/g, (m, p1, p2) => p1 + p2.toUpperCase());
+  }
+
+  return str;
+}
+
+/**
+ * Assemble full text when inserting speech at an active cursor / selection point.
+ * Accurately handles:
+ * - Proper spacing before and after inserted words
+ * - Smart lowercase/capitalization based on prefix sentence boundaries
+ * - Smart punctuation attachment (no space before commas, periods, etc.)
+ * - Returns both the assembled text and the new cursor position
+ */
+function assembleTextAtCursor(prefix, incomingText, suffix, isMultiLine = false) {
+  if (!incomingText) {
+    return {
+      fullText: prefix + suffix,
+      cursorOffset: prefix.length
+    };
+  }
+
+  let textToInsert = incomingText;
+
+  // Determine if insertion point is at the beginning of the text or follows a sentence terminator
+  const isStartOfSentence = !prefix || /([.?!]\s*|\n\s*)$/.test(prefix);
+
+  if (!isStartOfSentence) {
+    // If inserting into the middle of an existing sentence, convert initial capital to lowercase
+    // (except for proper noun pronoun "I", e.g. "I", "I'm", "I'll", "I'd", "I've")
+    textToInsert = textToInsert.replace(/^(\s*)([A-Z])(?![A-Z])/, (match, space, letter) => {
+      if (letter === 'I' && /^\s*I\b/.test(textToInsert)) return match;
+      return space + letter.toLowerCase();
+    });
+  } else {
+    // If inserting at start of sentence, ensure first letter is capitalized
+    textToInsert = textToInsert.replace(/^(\s*)([a-z])/, (match, space, letter) => {
+      return space + letter.toUpperCase();
+    });
+  }
+
+  // 1. Spacing between prefix and inserted text
+  let left = prefix;
+  const insertTrimmedStart = textToInsert.trimStart();
+  const insertStartsWithPunct = /^[,\.\?!;:)\-\/]/.test(insertTrimmedStart);
+
+  if (insertStartsWithPunct) {
+    // Spoken punctuation mark attaches directly to prefix
+    left = left.trimEnd();
+  } else if (left && !/\s$/.test(left) && !/\n$/.test(left)) {
+    // Need space between prefix word and incoming word
+    left = left + ' ';
+  }
+
+  // 2. Spacing between inserted text and suffix
+  let mid = textToInsert;
+  let right = suffix;
+
+  if (right) {
+    const rightTrimmedStart = right.trimStart();
+    const rightStartsWithPunct = /^[,\.\?!;:)\-\/]/.test(rightTrimmedStart);
+
+    if (rightStartsWithPunct) {
+      // Right starts with punctuation (e.g. period, comma): attach directly
+      mid = mid.trimEnd();
+      right = right.trimStart();
+    } else {
+      // Right starts with a word/character
+      if (mid && !/\s$/.test(mid) && !/\n$/.test(mid) && !/^\s/.test(right)) {
+        mid = mid + ' ';
+      } else if (/\s$/.test(mid) && /^\s/.test(right)) {
+        right = right.trimStart();
+      }
+    }
+
+    // If mid ends with sentence-terminating punctuation (. ? !), capitalize the following letter in suffix
+    if (/[.?!]\s*$/.test(mid)) {
+      right = right.replace(/^(\s*)([a-z])/, (m, p1, p2) => p1 + p2.toUpperCase());
+    }
+  }
+
+  const fullText = left + mid + right;
+  const cursorOffset = (left + mid).length;
+
+  return {
+    fullText,
+    cursorOffset
+  };
+}
+
+/**
+ * Handle user moving or dragging the cursor/selection inside an active input
+ */
+function handleUserCursorMove(fieldKey) {
+  if (isProgrammaticCursorUpdate) return;
+  const fieldConfig = FIELDS[fieldKey];
+  if (!fieldConfig || !fieldConfig.input) return;
+
+  const input = fieldConfig.input;
+  const val = input.value || '';
+  const selStart = input.selectionStart ?? val.length;
+  const selEnd = input.selectionEnd ?? val.length;
+
+  // If cursor and selection haven't changed from our tracking, do nothing
+  if (selStart === currentSelStart && selEnd === currentSelEnd) {
+    return;
+  }
+
+  console.log(`[SpeechEngine] Cursor updated for ${fieldKey} to [${selStart}, ${selEnd}]`);
+
+  currentSelStart = selStart;
+  currentSelEnd = selEnd;
+  currentCursorPos = selStart;
+
+  sessionPrefix = val.substring(0, selStart);
+  sessionSuffix = val.substring(selEnd);
+  sessionFinalText = '';
+  sessionInterimText = '';
+  lastFinalTranscript = '';
+
+  // Silently restart speech recognition cycle so engine buffer begins fresh at new cursor position
+  if (isUserIntentRecording && activeRecordingField === fieldKey) {
+    cleanUpExistingRecognition();
+    startFieldRecording(fieldKey, true); // true = silent restart
+  }
+}
+
+/**
+ * Smart Word-Boundary Deduplication Helper
+ * Mobile browsers (especially Android Chrome) frequently repeat phrases
+ * across recognition restart boundaries or cumulative result packets.
+ * Detects and strips overlapping prefix between existingText tail and incomingText head.
+ */
+function appendWithDeduplication(existingText, incomingText) {
+  const existing = (existingText || '').trimEnd();
+  const incoming = (incomingText || '').trim();
+
+  if (!incoming) return existing ? existing + ' ' : '';
+  if (!existing) return incoming + ' ';
+
+  // If incoming starts with punctuation mark, attach directly without extra space
+  const startsWithPunctuation = /^[,\.\?!;:)\-\/]/.test(incoming);
+
+  const existingWords = existing.split(/\s+/);
+  const incomingWords = incoming.split(/\s+/);
+
+  // Check overlap of up to 12 words between tail of existing and head of incoming
+  const maxOverlap = Math.min(existingWords.length, incomingWords.length, 12);
+  let overlapFound = 0;
+
+  for (let len = maxOverlap; len >= 1; len--) {
+    const tailSlice = existingWords.slice(-len).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ''));
+    const headSlice = incomingWords.slice(0, len).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    if (tailSlice.join(' ') === headSlice.join(' ')) {
+      overlapFound = len;
+      break;
+    }
+  }
+
+  if (overlapFound > 0) {
+    const uniqueWords = incomingWords.slice(overlapFound);
+    if (uniqueWords.length === 0) return existing + ' ';
+    const separator = /^[,\.\?!;:)\-\/]/.test(uniqueWords[0]) ? '' : ' ';
+    return existing + separator + uniqueWords.join(' ') + ' ';
+  }
+
+  const separator = startsWithPunctuation ? '' : ' ';
+  return existing + separator + incoming + ' ';
+}
+
+/**
  * Toggle recording for a specific field by key
  */
 function toggleFieldRecording(fieldKey) {
@@ -211,10 +459,32 @@ function startFieldRecording(fieldKey, isSilentRestart = false) {
 
   activeRecordingField = fieldKey;
   isUserIntentRecording = true;
-  hasSpokenInSession = false;
 
-  // Snapshot current input value so speech appends naturally
-  baseTextAtSessionStart = fieldConfig.input.value ? fieldConfig.input.value.trim() + ' ' : '';
+  if (!isSilentRestart) {
+    // First start: snapshot text around cursor position, reset accumulators
+    hasSpokenInSession = false;
+    const input = fieldConfig.input;
+    const val = input ? (input.value || '') : '';
+    let selStart = input ? input.selectionStart : val.length;
+    let selEnd = input ? input.selectionEnd : val.length;
+
+    if (typeof selStart !== 'number' || typeof selEnd !== 'number' || isNaN(selStart)) {
+      selStart = val.length;
+      selEnd = val.length;
+    }
+
+    sessionPrefix = val.substring(0, selStart);
+    sessionSuffix = val.substring(selEnd);
+    sessionFinalText = '';
+    sessionInterimText = '';
+    lastFinalTranscript = '';
+    currentCursorPos = selStart;
+    currentSelStart = selStart;
+    currentSelEnd = selEnd;
+  } else {
+    // Silent restart after mobile pause: keep prefix, finals & suffix; clear transient interim
+    sessionInterimText = '';
+  }
 
   if (fieldConfig.wrapper) {
     fieldConfig.wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -222,12 +492,15 @@ function startFieldRecording(fieldKey, isSilentRestart = false) {
 
   try {
     recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous = !isMobile; // Disable continuous on mobile to prevent cumulative transcript arrays
     recognition.interimResults = true; // Enables live real-time character typing
     recognition.maxAlternatives = 1;
     recognition.lang = selectedDialect;
+    try {
+      recognition.unspokenPunctuation = true; // Request automatic punctuation from speech pause/prosody where supported
+    } catch (e) { }
 
-    console.log(`[SpeechEngine] Started listening for ${fieldConfig.name} in ${selectedDialect}`);
+    console.log(`[SpeechEngine] Started listening for ${fieldConfig.name} in ${selectedDialect}${isMobile ? ' (mobile mode)' : ''}`);
 
     recognition.onstart = () => {
       if (!isSilentRestart) {
@@ -261,37 +534,68 @@ function startFieldRecording(fieldKey, isSilentRestart = false) {
 
     /**
      * LIVE CHARACTER-BY-CHARACTER TYPING ENGINE
-     * Captures both finalized and interim (real-time in-flight) words.
+     * Uses event.resultIndex to process only NEW results (prevents mobile re-accumulation).
+     * Finals committed to sessionFinalText with deduplication.
+     * Interims are transient display-only in sessionInterimText.
      */
     recognition.onresult = (event) => {
       hasSpokenInSession = true;
-      let currentFinal = '';
-      let interim = '';
+      let cycleFinal = '';
+      let cycleInterim = '';
 
-      for (let i = 0; i < event.results.length; ++i) {
+      // Process only NEW results using resultIndex (critical for mobile)
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
         const res = event.results[i];
         if (res && res[0]) {
           if (res.isFinal) {
-            currentFinal += res[0].transcript + ' ';
+            cycleFinal += res[0].transcript;
           } else {
-            interim += res[0].transcript;
+            cycleInterim += res[0].transcript;
           }
         }
       }
 
-      const spokenContent = (currentFinal + interim).trim();
-      if (!spokenContent) return;
+      const isMiddleOfSentence = !!(sessionPrefix && !/([.?!]\s*|\n\s*)$/.test(sessionPrefix));
 
-      // Update text field in real-time
-      const combined = (baseTextAtSessionStart + spokenContent).trimStart();
-      const formatted = combined.charAt(0).toUpperCase() + combined.slice(1);
+      // Commit finalized text with smart punctuation and deduplication
+      const cleanFinal = formatPunctuation(cycleFinal.trim(), fieldConfig.isMultiLine, isMiddleOfSentence);
+      if (cleanFinal && cleanFinal !== lastFinalTranscript) {
+        sessionFinalText = appendWithDeduplication(sessionFinalText, cleanFinal);
+        lastFinalTranscript = cleanFinal;
+      }
+
+      // Update transient interim (formatted for live display)
+      sessionInterimText = formatPunctuation(cycleInterim, fieldConfig.isMultiLine, isMiddleOfSentence);
+
+      // Reconstruct display from clean cursor-aware buffers with smart spacing & positioning
+      const activeDictation = (sessionFinalText + sessionInterimText).trim();
 
       if (fieldConfig.input) {
-        fieldConfig.input.value = formatted;
+        const { fullText, cursorOffset } = assembleTextAtCursor(
+          sessionPrefix,
+          activeDictation,
+          sessionSuffix,
+          fieldConfig.isMultiLine
+        );
+
+        isProgrammaticCursorUpdate = true;
+        fieldConfig.input.value = fullText;
+        currentCursorPos = cursorOffset;
+        currentSelStart = cursorOffset;
+        currentSelEnd = cursorOffset;
+
+        try {
+          fieldConfig.input.setSelectionRange(cursorOffset, cursorOffset);
+        } catch (e) { }
+
+        setTimeout(() => {
+          isProgrammaticCursorUpdate = false;
+        }, 0);
       }
 
       if (listeningFieldText) {
-        const words = spokenContent.split(' ');
+        const displayText = (sessionFinalText + sessionInterimText).trim();
+        const words = displayText.split(' ');
         const snippet = words.slice(-4).join(' ');
         listeningFieldText.textContent = `✍️ "${snippet}..."`;
       }
@@ -334,18 +638,16 @@ function startFieldRecording(fieldKey, isSilentRestart = false) {
     recognition.onend = () => {
       console.log('[SpeechEngine] Recognition cycle ended.');
 
-      // If user is still recording, seamlessly continue listening for the next sentence
+      // If user is still recording, seamlessly continue listening
       if (isUserIntentRecording && activeRecordingField) {
-        const currentField = FIELDS[activeRecordingField];
-        if (currentField && currentField.input) {
-          baseTextAtSessionStart = currentField.input.value ? currentField.input.value.trim() + ' ' : '';
-        }
+        // Clear transient interim (either promoted to final or discarded by engine)
+        sessionInterimText = '';
 
         restartTimeout = setTimeout(() => {
           if (isUserIntentRecording && activeRecordingField) {
             startFieldRecording(activeRecordingField, true);
           }
-        }, 100);
+        }, isMobile ? 150 : 100); // Slightly longer delay on mobile for audio driver release
       } else {
         cleanUpUI();
       }
@@ -370,11 +672,21 @@ function stopRecording() {
   cleanUpExistingRecognition();
   cleanUpUI();
 
-  // Trim trailing spaces and update states
+  // Reset session buffers
+  sessionPrefix = '';
+  sessionSuffix = '';
+  sessionFinalText = '';
+  sessionInterimText = '';
+  lastFinalTranscript = '';
+  currentCursorPos = -1;
+  currentSelStart = -1;
+  currentSelEnd = -1;
+
+  // Polish punctuation, trim trailing spaces and update states
   Object.keys(FIELDS).forEach((key) => {
     const f = FIELDS[key];
     if (f && f.input) {
-      f.input.value = f.input.value.trim();
+      f.input.value = formatPunctuation(f.input.value, f.isMultiLine).trim();
     }
   });
 
@@ -465,7 +777,14 @@ function clearField(fieldKey) {
 
   // Clear value and reset voice snapshot
   field.input.value = '';
-  baseTextAtSessionStart = '';
+  sessionPrefix = '';
+  sessionSuffix = '';
+  sessionFinalText = '';
+  sessionInterimText = '';
+  lastFinalTranscript = '';
+  currentCursorPos = 0;
+  currentSelStart = 0;
+  currentSelEnd = 0;
   updateFieldStates();
 
   // Focus the input
@@ -538,7 +857,14 @@ async function handleSubmitStory() {
         FIELDS[key].input.value = '';
       }
     });
-    baseTextAtSessionStart = '';
+    sessionPrefix = '';
+    sessionSuffix = '';
+    sessionFinalText = '';
+    sessionInterimText = '';
+    lastFinalTranscript = '';
+    currentCursorPos = -1;
+    currentSelStart = -1;
+    currentSelEnd = -1;
     updateFieldStates();
 
   } catch (error) {
@@ -593,28 +919,46 @@ function showToast(title, subtitle, type = 'success') {
    Event Listeners
    ========================================================================== */
 
-// Set up field listeners (Focusing or clicking anywhere on a field activates and maintains recording)
+// Set up field listeners
+// - First click inside field starts recording immediately with cursor at click/selection position
+// - Subsequent clicks/drags inside the field update the cursor insertion point seamlessly
+// - Clicking a different field switches recording to that field
+// - Clicking outside fields stops recording
 Object.keys(FIELDS).forEach((key) => {
   const field = FIELDS[key];
   if (!field || !field.wrapper) return;
 
-  // Clicking anywhere on the field wrapper ensures focus and keeps/starts recording
+  // Clicking anywhere on the field wrapper (or inside the field input)
   field.wrapper.addEventListener('click', (e) => {
     // If clicked on clear eraser button, clearField handles it
     if (e.target.closest('.clear-btn')) return;
 
-    // Focus input if not already focused
-    if (document.activeElement !== field.input && field.input) {
-      field.input.focus();
+    const clickedDirectlyOnInput = (e.target === field.input);
+
+    if (field.input) {
+      if (!clickedDirectlyOnInput && document.activeElement !== field.input) {
+        field.input.focus();
+        // Placed cursor at end if clicked outside the input element itself (e.g. wrapper margin)
+        const len = field.input.value.length;
+        field.input.setSelectionRange(len, len);
+      } else {
+        field.input.focus();
+      }
     }
 
-    // Ensure speech recognition is active for this field (do NOT turn off while user is in the field)
-    if (activeRecordingField !== key || !isUserIntentRecording) {
-      startFieldRecording(key);
+    // If already recording this exact field:
+    if (isUserIntentRecording && activeRecordingField === key) {
+      if (clickedDirectlyOnInput) {
+        handleUserCursorMove(key);
+      }
+      return;
     }
+
+    // Start recording immediately on click (or switch from another field)
+    startFieldRecording(key);
   });
 
-  // Input focus listener: When focused (via click, Tab key, or programmatic focus), activate recording
+  // Focus on input (e.g. keyboard Tab navigation)
   if (field.input) {
     field.input.addEventListener('focus', () => {
       if (activeRecordingField !== key || !isUserIntentRecording) {
@@ -622,10 +966,42 @@ Object.keys(FIELDS).forEach((key) => {
       }
     });
 
-    // When user manually types or edits, keep base snapshot in sync
+    // Listen to user mouse, touch, select, drop interactions to track cursor placement & dragging
+    ['mouseup', 'touchend', 'select', 'drop'].forEach((evt) => {
+      field.input.addEventListener(evt, () => {
+        if (isUserIntentRecording && activeRecordingField === key) {
+          setTimeout(() => {
+            handleUserCursorMove(key);
+          }, 0);
+        }
+      });
+    });
+
+    // Keyboard navigation keys (Arrow keys, Home, End, PageUp, PageDown)
+    field.input.addEventListener('keyup', (e) => {
+      const navKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+      if (navKeys.includes(e.key)) {
+        if (isUserIntentRecording && activeRecordingField === key) {
+          handleUserCursorMove(key);
+        }
+      }
+    });
+
+    // Manual typing/editing: sync session buffers
     field.input.addEventListener('input', (e) => {
-      if (e.isTrusted) {
-        baseTextAtSessionStart = field.input.value ? field.input.value.trim() + ' ' : '';
+      if (e.isTrusted && isUserIntentRecording && activeRecordingField === key) {
+        // User typed manually while recording — reset buffers to current cursor location
+        const val = field.input.value || '';
+        const pos = field.input.selectionStart ?? val.length;
+        const endPos = field.input.selectionEnd ?? pos;
+        sessionPrefix = val.substring(0, pos);
+        sessionSuffix = val.substring(endPos);
+        sessionFinalText = '';
+        sessionInterimText = '';
+        lastFinalTranscript = '';
+        currentCursorPos = pos;
+        currentSelStart = pos;
+        currentSelEnd = endPos;
       }
       updateFieldStates();
     });
@@ -653,12 +1029,34 @@ Object.keys(FIELDS).forEach((key) => {
   }
 });
 
-// Stop recording when clicking outside anywhere of the input box
+// Catch any mouse drag-selection that ends anywhere on the document while recording
+document.addEventListener('mouseup', () => {
+  if (isUserIntentRecording && activeRecordingField) {
+    setTimeout(() => {
+      handleUserCursorMove(activeRecordingField);
+    }, 0);
+  }
+});
+
+// Selection change observer for cursor dragging across inputs
+document.addEventListener('selectionchange', () => {
+  if (isUserIntentRecording && activeRecordingField && !isProgrammaticCursorUpdate) {
+    const fieldConfig = FIELDS[activeRecordingField];
+    if (fieldConfig && fieldConfig.input && document.activeElement === fieldConfig.input) {
+      if (cursorDebounceTimer) clearTimeout(cursorDebounceTimer);
+      cursorDebounceTimer = setTimeout(() => {
+        handleUserCursorMove(activeRecordingField);
+      }, 100);
+    }
+  }
+});
+
+// Stop recording when clicking outside fields
 document.addEventListener('click', (e) => {
   if (!isUserIntentRecording) return;
-  const clickedInputBox = e.target.closest('.paper-input-container');
-  if (!clickedInputBox) {
-    console.log('[SpeechEngine] Clicked outside input box -> stopping recording');
+  const clickedField = e.target.closest('.paper-input-container, .notepad-row, .corner-mic-badge');
+  if (!clickedField) {
+    console.log('[SpeechEngine] Clicked outside fields -> stopping recording');
     stopRecording();
   }
 });
