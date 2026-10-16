@@ -15,7 +15,12 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID || '1PETlMXFGuKl7-n84yRwuYbKS5xrPl79ykV9FyfzprYk';
-const SHEET_NAME = process.env.GOOGLE_SHEET_NAME || 'Sheet1';
+const DEFAULT_SHEET_NAME = process.env.GOOGLE_SHEET_NAME || 'Sheet1';
+
+// Dynamic Sheet Tab Name Cache (refreshed automatically when client changes tab name)
+let cachedSheetName = null;
+let lastSheetNameFetch = 0;
+const SHEET_NAME_CACHE_TTL = 30000; // 30 seconds cache TTL
 
 app.use(cors());
 app.use(express.json());
@@ -299,26 +304,86 @@ function normalizeKey(str) {
 }
 
 /**
+ * Safely format range with single quotes around sheet title
+ * Handles spaces, special characters, and escapes internal single quotes.
+ */
+function formatSheetRange(sheetTitle, cellRange) {
+  const safeName = String(sheetTitle || cachedSheetName || DEFAULT_SHEET_NAME).replace(/'/g, "''");
+  return `'${safeName}'!${cellRange}`;
+}
+
+/**
+ * Dynamically resolve the target sheet tab name.
+ * 1. Checks if client explicitly specified a sheetName or GOOGLE_SHEET_NAME in .env
+ * 2. If specified name exists in workbook, uses it.
+ * 3. If not found or not specified (e.g. client renamed "Sheet1"), automatically discovers
+ *    and uses the first / primary sheet tab in the Google Spreadsheet.
+ */
+async function resolveSheetName(sheets, preferredName = null, forceRefresh = false) {
+  const target = preferredName || process.env.GOOGLE_SHEET_NAME;
+  const now = Date.now();
+
+  if (!forceRefresh && cachedSheetName && !preferredName && (now - lastSheetNameFetch < SHEET_NAME_CACHE_TTL)) {
+    return cachedSheetName;
+  }
+
+  try {
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+      fields: 'sheets.properties.title,sheets.properties.sheetId,sheets.properties.index'
+    });
+
+    const sheetsList = meta.data.sheets || [];
+    if (sheetsList.length === 0) {
+      return target || DEFAULT_SHEET_NAME;
+    }
+
+    // 1. If client requested or configured a specific name, match case-insensitively
+    if (target) {
+      const match = sheetsList.find(s => s.properties?.title?.toLowerCase() === target.toLowerCase());
+      if (match) {
+        cachedSheetName = match.properties.title;
+        lastSheetNameFetch = now;
+        return cachedSheetName;
+      }
+      console.warn(`[SHEETS] Configured sheet name "${target}" not found. Available sheets: [${sheetsList.map(s => s.properties?.title).join(', ')}]`);
+    }
+
+    // 2. Default to the first (primary) sheet tab in the workbook
+    const primaryTitle = sheetsList[0].properties?.title || DEFAULT_SHEET_NAME;
+    cachedSheetName = primaryTitle;
+    lastSheetNameFetch = now;
+    console.log(`[SHEETS] Dynamically resolved active sheet tab: "${primaryTitle}"`);
+    return cachedSheetName;
+  } catch (err) {
+    console.warn('[SHEETS] Could not query spreadsheet metadata to resolve sheet name:', err.message);
+    return target || cachedSheetName || DEFAULT_SHEET_NAME;
+  }
+}
+
+/**
  * Ensure header row exists on target Google Sheet and retrieve active headers
  */
-async function ensureHeaders(sheets) {
+async function ensureHeaders(sheets, targetSheetName) {
   try {
+    const checkRange = formatSheetRange(targetSheetName, '1:1');
     const existing = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_NAME}!1:1`
+      range: checkRange
     });
 
     if (!existing.data.values || existing.data.values.length === 0 || existing.data.values[0].length === 0) {
       const lastCol = getColumnLetter(DEFAULT_SHEET_HEADERS.length);
+      const updateRange = formatSheetRange(targetSheetName, `A1:${lastCol}1`);
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A1:${lastCol}1`,
+        range: updateRange,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [DEFAULT_SHEET_HEADERS]
         }
       });
-      console.log(`[SHEETS] Wrote master 104 headers to ${SHEET_NAME}!A1:${lastCol}1`);
+      console.log(`[SHEETS] Wrote master 104 headers to ${updateRange}`);
       return DEFAULT_SHEET_HEADERS;
     }
 
@@ -332,11 +397,11 @@ async function ensureHeaders(sheets) {
 /**
  * Calculate next sequence number for column A ('id')
  */
-async function getNextSequenceNumber(sheets) {
+async function getNextSequenceNumber(sheets, targetSheetName) {
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_NAME}!A:A`
+      range: formatSheetRange(targetSheetName, 'A:A')
     });
     const rows = res.data.values || [];
     if (rows.length <= 1) {
@@ -474,29 +539,51 @@ async function appendStoryToSheet(saCreds, submissionData) {
 
   const sheets = google.sheets({ version: 'v4', auth });
 
+  // 0. Dynamically resolve sheet tab (handles client renaming Sheet1 or custom tab)
+  let targetSheetName = await resolveSheetName(sheets, submissionData.sheetName);
+
   // 1. Ensure/fetch headers from Google Sheet
-  const headers = await ensureHeaders(sheets);
+  const headers = await ensureHeaders(sheets, targetSheetName);
 
   // 2. Compute next sequential numeric ID for Column A ('id')
   // [COMMENTED OUT] Automatic sequence calculation disabled
-  // const nextSeq = await getNextSequenceNumber(sheets);
+  // const nextSeq = await getNextSequenceNumber(sheets, targetSheetName);
 
   // 3. Map payload to the exact columns of the sheet
   const { row, mappedSummary, sequenceNumber, generatedStoryId, generatedSlug } = mapSubmissionToRow(headers, submissionData);
 
-  // 4. Append to the full width range
+  // 4. Append to the full width range of the resolved sheet
   const lastColLetter = getColumnLetter(headers.length);
-  const response = await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:${lastColLetter}`,
-    valueInputOption: 'USER_ENTERED',
-    insertDataOption: 'INSERT_ROWS',
-    requestBody: {
-      values: [row]
-    }
-  });
+  const appendRange = formatSheetRange(targetSheetName, `A:${lastColLetter}`);
 
-  console.log(`[SHEETS] Appended row #${sequenceNumber} (Story ID: ${generatedStoryId}) to ${response.data.updates?.updatedRange || 'sheet'}`);
+  let response;
+  try {
+    response = await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: appendRange,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [row]
+      }
+    });
+  } catch (appendErr) {
+    // If append fails (e.g. client renamed sheet tab in Google Sheets while server was running),
+    // force-refresh metadata to get the new sheet name and retry once.
+    console.warn(`[SHEETS] Append failed on "${targetSheetName}". Retrying with fresh sheet metadata...`, appendErr.message);
+    targetSheetName = await resolveSheetName(sheets, submissionData.sheetName, true);
+    response = await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: formatSheetRange(targetSheetName, `A:${lastColLetter}`),
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [row]
+      }
+    });
+  }
+
+  console.log(`[SHEETS] Appended row #${sequenceNumber} (Story ID: ${generatedStoryId}) to ${response.data.updates?.updatedRange || 'sheet'} [Tab: "${targetSheetName}"]`);
   console.log(`[SHEETS] Field mappings:\n` + mappedSummary.map(m => `  • Col ${m.letter} (${m.header}): "${m.preview}"`).join('\n'));
 
   return {
@@ -505,6 +592,7 @@ async function appendStoryToSheet(saCreds, submissionData) {
     sequenceNumber,
     generatedStoryId,
     generatedSlug,
+    targetSheetName,
     totalColumns: headers.length
   };
 }
@@ -512,7 +600,7 @@ async function appendStoryToSheet(saCreds, submissionData) {
 /**
  * GET /api/status - Check backend status and service account status
  */
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
   const sa = getServiceAccountCredentials();
 
   res.json({
@@ -520,6 +608,7 @@ app.get('/api/status', (req, res) => {
     hasServiceAccount: Boolean(sa),
     serviceAccountEmail: sa ? sa.clientEmail : null,
     spreadsheetId: SPREADSHEET_ID,
+    activeSheetName: cachedSheetName || process.env.GOOGLE_SHEET_NAME || 'Auto-detecting primary sheet',
     sheetUrl: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=0`,
     totalEntriesLogged: sessionStories.length
   });
@@ -539,30 +628,7 @@ app.get('/api/history', (req, res) => {
  */
 app.post('/api/submit', async (req, res) => {
   try {
-    const {
-      storyTitle,
-      storySubHeading,
-      storyDescription,
-      challengeDescription,
-      planDescription,
-      makeoverDescription,
-      ownerDescription,
-      ownerQuotes,
-      // Backwards compatibility with previous field names
-      topic,
-      description,
-      text,
-      language = 'en-IN',
-      timestamp = new Date().toISOString()
-    } = req.body;
-
-    const cleanStoryTitle = (storyTitle || req.body['Story Title'] || topic || '').trim();
-    const cleanStorySubHeading = (storySubHeading || req.body['Story sub heading'] || req.body['Story Sub Heading'] || '').trim();
-    const cleanStoryDescription = (storyDescription || req.body['Story Description'] || description || text || '').trim();
-    const cleanChallengeDesc = (challengeDescription || req.body['Challange Description'] || req.body['Challenge Description'] || '').trim();
-    const cleanPlanDesc = (planDescription || req.body['Plan Description'] || '').trim();
-    const cleanMakeoverDesc = (makeoverDescription || req.body['Makeover Description'] || '').trim();
-    const cleanOwnerDesc = (ownerDescription || req.body['Owner Description'] || ownerQuotes || '').trim();
+    const { language = 'en-IN', timestamp = new Date().toISOString() } = req.body;
 
     // Check if ANY field in the entire payload has content (core + extended)
     const hasAnyContent = Object.entries(req.body).some(([k, v]) => {
@@ -598,18 +664,7 @@ app.post('/api/submit', async (req, res) => {
 
     if (sa) {
       try {
-        sheetResult = await appendStoryToSheet(sa, {
-          ...req.body,
-          storyTitle: cleanStoryTitle,
-          storySubHeading: cleanStorySubHeading,
-          storyDescription: cleanStoryDescription,
-          challengeDescription: cleanChallengeDesc,
-          planDescription: cleanPlanDesc,
-          makeoverDescription: cleanMakeoverDesc,
-          ownerDescription: cleanOwnerDesc,
-          ownerQuotes: cleanOwnerDesc,
-          timestamp: displayTimestamp
-        });
+        sheetResult = await appendStoryToSheet(sa, req.body);
         syncedToSheet = true;
         message = 'Story case study successfully saved into the correct Google Sheet fields!';
       } catch (sheetError) {
@@ -637,14 +692,14 @@ app.post('/api/submit', async (req, res) => {
       id: sheetResult?.sequenceNumber || req.body.id || req.body['id'] || '',
       storyId: sheetResult?.generatedStoryId || req.body.storyId || req.body['Story ID'] || '',
       slug: sheetResult?.generatedSlug || req.body.slug || req.body['Slug'] || '',
-      storyTitle: cleanStoryTitle || '',
-      storySubHeading: cleanStorySubHeading,
-      storyDescription: cleanStoryDescription,
-      challengeDescription: cleanChallengeDesc,
-      planDescription: cleanPlanDesc,
-      makeoverDescription: cleanMakeoverDesc,
-      ownerDescription: cleanOwnerDesc,
-      ownerQuotes: cleanOwnerDesc,
+      storyTitle: (req.body['Story Title'] || req.body.storyTitle || '').trim(),
+      storySubHeading: (req.body['Story sub heading'] || req.body.storySubHeading || '').trim(),
+      storyDescription: (req.body['Story Description'] || req.body.storyDescription || '').trim(),
+      challengeDescription: (req.body['Challange Description'] || req.body.challengeDescription || '').trim(),
+      planDescription: (req.body['Plan Description'] || req.body.planDescription || '').trim(),
+      makeoverDescription: (req.body['Makeover Description'] || req.body.makeoverDescription || '').trim(),
+      ownerDescription: (req.body['Owner Description'] || req.body.ownerDescription || '').trim(),
+      ownerQuotes: (req.body['Owner Description'] || req.body.ownerDescription || '').trim(),
       timestamp: displayTimestamp,
       language,
       syncedToSheet,

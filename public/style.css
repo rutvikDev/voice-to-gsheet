@@ -1184,11 +1184,17 @@ body.pen-paper-theme {
   color: var(--ink-primary);
   line-height: var(--line-height-textarea); /* Matches ruled line repeat */
   resize: none;
-  overflow: hidden;
-  overflow-y: hidden;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
   min-height: clamp(100px, 15vh, 130px);
+  max-height: 240px;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+
+  /* Hidden scrollbar - Firefox */
+  scrollbar-width: none !important;
+
+  /* Hidden scrollbar - IE and Edge */
+  -ms-overflow-style: none !important;
 
   /* Classic Notebook Ruled Lines */
   background-image: repeating-linear-gradient(
@@ -1200,19 +1206,7 @@ body.pen-paper-theme {
   background-attachment: local;
 }
 
-/* Never show scrollbars when input/textarea is empty or showing placeholder */
-.paper-ruled-textarea:placeholder-shown,
-.paper-ruled-textarea:empty {
-  overflow: hidden !important;
-  overflow-y: hidden !important;
-}
-
-.paper-ruled-textarea:not(:placeholder-shown) {
-  overflow-y: auto;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
+/* Hidden scrollbar - Chrome, Safari, Edge, Opera */
 .paper-ruled-textarea::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
@@ -1220,7 +1214,27 @@ body.pen-paper-theme {
 }
 
 .paper-text-input {
-  overflow: hidden !important;
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: clamp(10px, 2vw, 13px) clamp(12px, 2.5vw, 18px);
+  font-family: var(--font-serif);
+  font-size: var(--input-font-size);
+  color: var(--ink-primary);
+  line-height: 1.4;
+  min-width: 0;
+  width: 100%;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.paper-text-input::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .paper-ruled-textarea::placeholder {
@@ -1798,6 +1812,57 @@ body.pen-paper-theme {
   color: var(--ink-accent);
 }
 
+.field-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.grammar-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #854d0e;
+  background: linear-gradient(135deg, rgba(254, 249, 195, 0.95) 0%, rgba(253, 230, 138, 0.75) 100%);
+  border: 1px solid rgba(202, 138, 4, 0.45);
+  padding: 3px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(133, 77, 14, 0.08);
+  transition: all var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.grammar-status-pill:hover {
+  background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
+  border-color: #ca8a04;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(133, 77, 14, 0.16);
+}
+
+.grammar-status-pill.disabled {
+  background: rgba(229, 231, 235, 0.6);
+  border-color: #d1d5db;
+  color: #6b7280;
+  box-shadow: none;
+}
+
+.grammar-sparkle {
+  font-size: 0.85rem;
+  line-height: 1;
+  animation: gentleSparkle 2.5s infinite ease-in-out;
+}
+
+@keyframes gentleSparkle {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; }
+  50% { transform: scale(1.15) rotate(6deg); opacity: 1; }
+}
+
 .field-count-pill {
   font-family: var(--font-mono);
   font-size: 0.72rem;
@@ -1822,6 +1887,15 @@ body.pen-paper-theme {
   .field-search-bar {
     padding: 8px 10px;
     gap: 8px;
+  }
+
+  .field-bar-actions {
+    gap: 5px;
+  }
+
+  .grammar-status-pill {
+    font-size: 0.65rem;
+    padding: 2px 7px;
   }
 
   .field-count-pill {
@@ -2092,6 +2166,16 @@ body.pen-paper-theme {
     padding: 7px 10px;
     font-size: 1rem; /* iOS Safari minimum 16px */
     line-height: 1.35;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .paper-text-input::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   .paper-ruled-textarea {
@@ -2099,9 +2183,9 @@ body.pen-paper-theme {
     font-size: 1rem;
     line-height: 26px;
     min-height: 72px;
+    max-height: 180px;
     resize: none !important;
-    overflow: hidden !important;
-    overflow-y: hidden !important;
+    overflow-y: auto !important;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
     background-image: repeating-linear-gradient(
@@ -2116,18 +2200,6 @@ body.pen-paper-theme {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
-  }
-
-  .paper-ruled-textarea:placeholder-shown,
-  .paper-ruled-textarea:empty {
-    overflow: hidden !important;
-    overflow-y: hidden !important;
-  }
-
-  .paper-ruled-textarea:not(:placeholder-shown) {
-    overflow-y: auto !important;
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
   }
 
   .desc-actions {

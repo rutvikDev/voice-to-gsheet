@@ -11,9 +11,17 @@ const sheets = google.sheets({ version: 'v4', auth });
 const SPREADSHEET_ID = '1PETlMXFGuKl7-n84yRwuYbKS5xrPl79ykV9FyfzprYk';
 
 async function fixExisting() {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+    fields: 'sheets.properties.title'
+  });
+  const sheetName = meta.data.sheets[0].properties.title;
+  console.log(`Discovered active sheet tab: "${sheetName}"`);
+  const escaped = sheetName.replace(/'/g, "''");
+
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: 'Sheet1!A1:H8'
+    range: `'${escaped}'!A1:H8`
   });
 
   const rows = res.data.values;
@@ -36,13 +44,13 @@ async function fixExisting() {
     }
 
     updates.push({
-      range: `Sheet1!A${rowNum}`,
+      range: `'${escaped}'!A${rowNum}`,
       values: [[seqNum]]
     });
 
     if (newH !== currentH) {
       updates.push({
-        range: `Sheet1!H${rowNum}`,
+        range: `'${escaped}'!H${rowNum}`,
         values: [[newH]]
       });
     }
